@@ -1,7 +1,7 @@
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/(.*\.)?worldmonitor\.app$/,
   /^https:\/\/worldmonitor-[a-z0-9-]+-elie-[a-z0-9]+\.vercel\.app$/,
-  /^https:\/\/worldmonitor-[a-z0-9-]+-vectecgroup-[a-z0-9]+\.vercel\.app$/,
+  /^https:\/\/worldmonitor-[a-z0-9-]+-vectecgroup-6096s-projects\.vercel\.app$/,
   /^https?:\/\/localhost(:\d+)?$/,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
   /^https?:\/\/tauri\.localhost(:\d+)?$/,

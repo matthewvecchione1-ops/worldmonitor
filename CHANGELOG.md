@@ -2,6 +2,55 @@
 
 All notable changes to World Monitor are documented here.
 
+## [2.5.20] - 2026-02-27
+
+### Added
+- **Edge caching**: Complete Cloudflare edge cache tier coverage with degraded-response policy (#484)
+- **Edge caching**: Cloudflare edge caching for proxy.worldmonitor.app (#478) and api.worldmonitor.app (#471)
+- **Edge caching**: Tiered edge Cache-Control aligned to upstream TTLs (#474)
+- **API migration**: Convert 52 API endpoints from POST to GET for edge caching (#468)
+- **Gateway**: Configurable VITE_WS_API_URL + harden POST-to-GET shim (#480)
+- **Cache**: Negative-result caching for cachedFetchJson (#466)
+- **Security advisories**: New panel with government travel alerts (#460)
+- **Settings**: Redesign settings window with VS Code-style sidebar layout (#461)
+
+### Fixed
+- **Commodities panel**: Was showing stocks instead of commodities — circuit breaker SWR returned stale data from a different call when cacheTtlMs=0 (#483)
+- **Analytics**: Use greedy regex in PostHog ingest rewrites (#481)
+- **Sentry**: Add noise filters for 4 unresolved issues (#479)
+- **Gateway**: Convert stale POST requests to GET for backwards compat (#477)
+- **Desktop**: Enable click-to-play YouTube embeds + CISA feed fixes (#476)
+- **Tech variant**: Use rss() for CISA feed, drop build from pre-push hook (#475)
+- **Security advisories**: Route feeds through RSS proxy to avoid CORS blocks (#473)
+- **API routing**: Move 5 path-param endpoints to query params for Vercel routing (#472)
+- **Beta**: Eagerly load T5-small model when beta mode is enabled
+- **Scripts**: Handle escaped apostrophes in feed name regex (#455)
+- **Wingbits**: Add 5-minute backoff on /v1/flights failures (#459)
+- **Ollama**: Strip thinking tokens, raise max_tokens, fix panel summary cache (#456)
+- **RSS/HLS**: RSS feed repairs, HLS native playback, summarization cache fix (#452)
+
+### Performance
+- **AIS proxy**: Increase AIS snapshot edge TTL from 2s to 10s (#482)
+
+---
+
+## [2.5.10] - 2026-02-26
+
+### Fixed
+
+- **Yahoo Finance rate-limit UX**: Show "rate limited — retrying shortly" instead of generic "Failed to load" on Markets, ETF, Commodities, and Sector panels when Yahoo returns 429 (#407)
+- **Sequential Yahoo calls**: Replace `Promise.all` with staggered batching in commodity quotes, ETF flows, and macro signals to prevent 429 rate limiting (#406)
+- **Sector heatmap Yahoo fallback**: Sector data now loads via Yahoo Finance when `FINNHUB_API_KEY` is missing (#406)
+- **Finnhub-to-Yahoo fallback**: Market quotes route Finnhub symbols through Yahoo when API key is not configured (#407)
+- **ETF early-exit on rate limit**: Skip retry loop and show rate-limit message immediately instead of waiting 60s (#407)
+- **Sidecar auth resilience**: 401-retry with token refresh for stale sidecar tokens after restart; `diagFetch` auth helper for settings window diagnostics (#407)
+- **Verbose toggle persistence**: Write verbose state to writable data directory instead of read-only app bundle on macOS (#407)
+- **AI summary verbosity**: Tighten prompts to 2 sentences / 60 words max with `max_tokens` reduced from 150 to 100 (#404)
+- **Settings modal title**: Rename from "PANELS" to "SETTINGS" across all 17 locales (#403)
+- **Sentry noise filters**: CSS.escape() for news ID selectors, player.destroy guard, 11 new ignoreErrors patterns, blob: URL extension frame filter (#402)
+
+---
+
 ## [2.5.6] - 2026-02-23
 
 ### Added

@@ -36,7 +36,8 @@
       "earthquakes": "แผ่นดินไหว",
       "displaced": "ผู้พลัดถิ่น",
       "climate": "ความเครียดด้านภูมิอากาศ",
-      "conflictEvents": "เหตุการณ์ความขัดแย้ง"
+      "conflictEvents": "เหตุการณ์ความขัดแย้ง",
+      "gpsJammingZones": "GPS Jamming Zones"
     },
     "timeAgo": {
       "m": "{{count}}น. ที่แล้ว",
@@ -80,7 +81,7 @@
     "tech": "เทคโนโลยี",
     "live": "สด",
     "search": "ค้นหา",
-    "settings": "แผง",
+    "settings": "การตั้งค่า",
     "sources": "แหล่งข้อมูล",
     "copyLink": "คัดลอกลิงก์",
     "fullscreen": "เต็มจอ",
@@ -137,7 +138,8 @@
     "panelCatCryptoDigital": "คริปโต & ดิจิทัล",
     "panelCatCentralBanks": "ธนาคารกลาง & เศรษฐกิจ",
     "panelCatDeals": "ดีล & สถาบัน",
-    "panelCatGulfMena": "อ่าวเปอร์เซีย & MENA"
+    "panelCatGulfMena": "อ่าวเปอร์เซีย & MENA",
+    "panelCatTradePolicy": "นโยบายการค้า"
   },
   "panels": {
     "liveNews": "ข่าวสด",
@@ -166,6 +168,7 @@
     "polymarket": "การพยากรณ์",
     "commodities": "สินค้าโภคภัณฑ์",
     "economic": "ตัวชี้วัดเศรษฐกิจ",
+    "tradePolicy": "นโยบายการค้า",
     "finance": "การเงิน",
     "tech": "เทคโนโลยี",
     "crypto": "คริปโต",
@@ -201,18 +204,21 @@
     "techReadiness": "ดัชนีความพร้อมด้านเทคโนโลยี",
     "gccInvestments": "การลงทุน GCC",
     "geoHubs": "ศูนย์กลางภูมิรัฐศาสตร์",
-    "liveWebcams": "เว็บแคมสด"
+    "liveWebcams": "เว็บแคมสด",
+    "securityAdvisories": "คำเตือนด้านความปลอดภัย",
+    "orefSirens": "Israel Sirens",
+    "telegramIntel": "ข่าวกรอง Telegram"
   },
   "modals": {
     "search": {
-      "placeholder": "ค้นหาข่าว, ท่อส่ง, ฐานทัพ, ตลาด...",
-      "hint": "ข่าว • ท่อส่ง • ฐานทัพ • สายเคเบิล • ศูนย์ข้อมูล • ตลาด",
-      "placeholderTech": "ค้นหาบริษัท, ห้องปฏิบัติการ AI, สตาร์ทอัพ, งาน...",
-      "hintTech": "สำนักงานใหญ่ • บริษัท • ห้องปฏิบัติการ AI • สตาร์ทอัพ • แอคเซเลอเรเตอร์ • งาน",
-      "placeholderFinance": "ค้นหาตลาดหลักทรัพย์, ตลาด, ธนาคารกลาง...",
-      "hintFinance": "ตลาดหลักทรัพย์ • ศูนย์กลางการเงิน • ธนาคารกลาง • สินค้าโภคภัณฑ์",
+      "placeholder": "ค้นหาหรือพิมพ์คำสั่ง...",
+      "hint": "ค้นหา • ประเทศ • เลเยอร์ • แผง • การนำทาง • การตั้งค่า",
+      "placeholderTech": "ค้นหาหรือพิมพ์คำสั่ง...",
+      "hintTech": "ค้นหา • บริษัท • ห้องปฏิบัติการ AI • เลเยอร์ • การนำทาง • การตั้งค่า",
+      "placeholderFinance": "ค้นหาหรือพิมพ์คำสั่ง...",
+      "hintFinance": "ค้นหา • ตลาดหลักทรัพย์ • ตลาด • เลเยอร์ • การนำทาง • การตั้งค่า",
       "recent": "การค้นหาล่าสุด",
-      "empty": "ค้นหาจากแหล่งข้อมูลทั้งหมด",
+      "empty": "ค้นหาข้อมูลหรือรันคำสั่ง",
       "noResults": "ไม่พบผลลัพธ์",
       "navigate": "นำทาง",
       "select": "เลือก",
@@ -420,7 +426,8 @@
         "earthquakes": "แผ่นดินไหว",
         "displaced": "ผู้พลัดถิ่น",
         "climate": "ความเครียดด้านภูมิอากาศ",
-        "conflictEvents": "เหตุการณ์ความขัดแย้ง"
+        "conflictEvents": "เหตุการณ์ความขัดแย้ง",
+        "gpsJammingZones": "GPS Jamming Zones"
       },
       "timeAgo": {
         "m": "{{count}}น. ที่แล้ว",
@@ -463,6 +470,7 @@
   "components": {
     "webcams": {
       "regions": {
+        "iran": "IRAN ATTACKS",
         "all": "ทั้งหมด",
         "mideast": "ตะวันออกกลาง",
         "europe": "ยุโรป",
@@ -523,7 +531,37 @@
       "noIndicatorData": "ยังไม่มีข้อมูลตัวชี้วัด - FRED อาจกำลังโหลด",
       "noOilDataRetry": "ข้อมูลน้ำมันไม่พร้อมใช้งานชั่วคราว - จะลองใหม่อัตโนมัติ",
       "vsPreviousWeek": "เทียบกับสัปดาห์ก่อน",
-      "in": "ใน"
+      "in": "ใน",
+      "centralBanks": "Central Banks",
+      "noBisData": "BIS data temporarily unavailable - will retry",
+      "policyRate": "Policy Rate",
+      "exchangeRate": "Exchange Rate",
+      "creditToGdp": "Credit / GDP",
+      "realEer": "Real EER",
+      "change": "Change",
+      "cut": "cut",
+      "hike": "hike",
+      "hold": "hold"
+    },
+    "tradePolicy": {
+      "restrictions": "ข้อจำกัด",
+      "tariffs": "ภาษีศุลกากร",
+      "flows": "กระแสการค้า",
+      "barriers": "อุปสรรคทางการค้า",
+      "noRestrictions": "ไม่มีข้อจำกัดทางการค้าที่ใช้งานอยู่",
+      "noTariffData": "ไม่มีข้อมูลภาษีศุลกากร",
+      "noFlowData": "ไม่มีข้อมูลกระแสการค้า",
+      "noBarriers": "ไม่มีรายงานอุปสรรคทางการค้า",
+      "apiKeyMissing": "ต้องใช้คีย์ API ของ WTO — เพิ่มในการตั้งค่า",
+      "upstreamUnavailable": "ข้อมูล WTO ไม่พร้อมใช้งานชั่วคราว — แสดงข้อมูลแคช",
+      "appliedRate": "อัตราที่ใช้",
+      "boundRate": "อัตราผูกพัน",
+      "exports": "การส่งออก",
+      "imports": "การนำเข้า",
+      "yoyChange": "เปลี่ยนแปลงรายปี",
+      "highTariff": "สูง",
+      "moderateTariff": "ปานกลาง",
+      "lowTariff": "ต่ำ"
     },
     "gdelt": {
       "empty": "ไม่มีบทความล่าสุดสำหรับหัวข้อนี้"
@@ -545,7 +583,8 @@
       "error": "ไม่สามารถโหลดการพยากรณ์ได้",
       "yes": "ใช่",
       "no": "ไม่",
-      "vol": "ปริมาณ"
+      "vol": "ปริมาณ",
+      "closes": "ปิด"
     },
     "stablecoins": {
       "pegHealth": "สุขภาพ Peg",
@@ -750,7 +789,10 @@
         "financialCenters": "ศูนย์กลางการเงิน",
         "centralBanks": "ธนาคารกลาง",
         "commodityHubs": "ศูนย์กลางสินค้าโภคภัณฑ์",
-        "gulfInvestments": "การลงทุน GCC"
+        "gulfInvestments": "การลงทุน GCC",
+        "tradeRoutes": "เส้นทางการค้า",
+        "gpsJamming": "GPS JAMMING",
+        "dayNight": "กลางวัน/กลางคืน"
       },
       "tooltip": {
         "earthquake": "แผ่นดินไหว",
@@ -799,7 +841,8 @@
           "geopolitical": "ภูมิรัฐศาสตร์",
           "militaryStrategic": "ทหารและยุทธศาสตร์",
           "transport": "การขนส่ง",
-          "labels": "ป้ายกำกับ"
+          "labels": "ป้ายกำกับ",
+          "overlays": "ภาพซ้อนทับและป้ายกำกับ"
         },
         "descriptions": {
           "techStartupHubs": "ระบบนิเวศสตาร์ทอัพสำคัญ (SF, NYC, ลอนดอน ฯลฯ)",
@@ -840,7 +883,9 @@
           "transportShipping": "เรือ, จุดคอขวด, ท่าเรือยุทธศาสตร์ 61 แห่ง",
           "transportDelays": "ความล่าช้าของสนามบินและการหยุดบินภาคพื้น (FAA)",
           "naturalEventsFull": "แผ่นดินไหว (USGS) + พายุ ไฟ ภูเขาไฟ น้ำท่วม (NASA EONET)",
-          "waterwaysLabels": "ป้ายกำกับจุดคอขวดยุทธศาสตร์"
+          "waterwaysLabels": "ป้ายกำกับจุดคอขวดยุทธศาสตร์",
+          "tradeRoutes": "เส้นทางเดินเรือหลักของโลกที่เชื่อมต่อท่าเรือผ่านจุดยุทธศาสตร์",
+          "dayNight": "เส้นแบ่งเขตแสงอาทิตย์แบบเรียลไทม์แสดงโซนกลางวันและกลางคืน"
         },
         "notes": {
           "timeAffects": "ส่งผลต่อ: แผ่นดินไหว, สภาพอากาศ, การประท้วง, การหยุดชะงัก"
@@ -1100,6 +1145,19 @@
     "gdeltIntel": {
       "infoTooltip": "<strong>ข่าวกรอง GDELT</strong> การเฝ้าระวังข่าวทั่วโลกเรียลไทม์:<ul><li>หมวดหมู่หัวข้อที่คัดสรร (ความขัดแย้ง, ไซเบอร์ ฯลฯ)</li><li>บทความจาก 100+ ภาษาที่แปลแล้ว</li><li>อัปเดตทุก 15 นาที</li></ul>แหล่งที่มา: GDELT Project (gdeltproject.org)"
     },
+    "telegramIntel": {
+      "infoTooltip": "สัญญาณเรียลไทม์จากช่อง OSINT บน Telegram ที่ถูกติดตาม",
+      "loading": "กำลังเชื่อมต่อรีเลย์ Telegram...",
+      "empty": "ไม่มีข้อความ",
+      "disabled": "รีเลย์ Telegram ไม่ทำงาน",
+      "filterAll": "ทั้งหมด",
+      "filterBreaking": "ด่วน",
+      "filterConflict": "ความขัดแย้ง",
+      "filterAlerts": "แจ้งเตือน",
+      "filterOsint": "OSINT",
+      "filterPolitics": "การเมือง",
+      "filterMiddleeast": "ตะวันออกกลาง"
+    },
     "investments": {
       "infoTooltip": "ฐานข้อมูลการลงทุนโดยตรงจากต่างประเทศของซาอุดีอาระเบียและ UAE ในโครงสร้างพื้นฐานสำคัญระดับโลก คลิกแถวเพื่อบินไปยังการลงทุนบนแผนที่",
       "searchPlaceholder": "ค้นหาสินทรัพย์, ประเทศ, หน่วยงาน…",
@@ -1234,6 +1292,7 @@
       "addChannel": "เพิ่มช่อง",
       "remove": "ลบ",
       "youtubeHandle": "YouTube handle (เช่น @Channel)",
+      "youtubeHandleOrUrl": "แฮนเดิล YouTube หรือ URL",
       "displayName": "ชื่อที่แสดง (ไม่บังคับ)",
       "openPanelSettings": "การตั้งค่าการแสดงผลแผง",
       "channelSettings": "การตั้งค่าช่อง",
@@ -1248,7 +1307,41 @@
       "regionEurope": "ยุโรป",
       "regionLatinAmerica": "ละตินอเมริกา",
       "regionAsia": "เอเชีย",
+      "regionMiddleEast": "ตะวันออกกลาง",
       "regionAfrica": "แอฟริกา"
+    },
+    "securityAdvisories": {
+      "loading": "กำลังโหลดคำเตือนการเดินทาง...",
+      "noMatching": "ไม่พบคำเตือนสำหรับตัวกรองนี้",
+      "critical": "วิกฤต",
+      "health": "สุขภาพ",
+      "sources": "US State Dept, AU DFAT, UK FCDO, NZ MFAT, CDC, ECDC, WHO, US Embassies",
+      "refresh": "รีเฟรช",
+      "levels": {
+        "doNotTravel": "ห้ามเดินทาง",
+        "reconsider": "ทบทวนการเดินทาง",
+        "caution": "ระวัง",
+        "normal": "ปกติ",
+        "info": "ข้อมูล"
+      },
+      "time": {
+        "justNow": "เมื่อสักครู่",
+        "minutesAgo": "{{count}} นาทีที่แล้ว",
+        "hoursAgo": "{{count}} ชั่วโมงที่แล้ว",
+        "daysAgo": "{{count}} วันที่แล้ว"
+      },
+      "infoTooltip": "<strong>คำเตือนด้านความปลอดภัย</strong><br>คำเตือนการเดินทางและความปลอดภัยจากหน่วยงานรัฐบาล."
+    },
+    "orefSirens": {
+      "checking": "Checking siren alerts...",
+      "noAlerts": "No active sirens — all clear",
+      "notConfigured": "Sirens service not configured",
+      "activeSirens": "{{count}} active siren(s)",
+      "area": "Area",
+      "time": "Time",
+      "justNow": "just now",
+      "historyCount": "{{count}} alerts in last 24h",
+      "infoTooltip": "<strong>Israel Sirens</strong><br>Real-time rocket and missile siren alerts from Israel Home Front Command.<br><br>Data is polled every 10 seconds. A pulsing red indicator means active sirens are sounding."
     }
   },
   "popups": {
@@ -1302,12 +1395,20 @@
       "riots": "จลาจล",
       "highSeverity": "ความรุนแรงสูง"
     },
+    "gpsJamming": {
+      "title": "การรบกวน GPS/GNSS",
+      "interference": "การรบกวน",
+      "aircraftAffected": "เครื่องบินที่ได้รับผลกระทบ",
+      "aircraftNormal": "เครื่องบินปกติ",
+      "h3Hex": "H3 Hex"
+    },
     "flight": {
       "groundStop": "หยุดภาคพื้น",
       "groundDelay": "โปรแกรมดีเลย์ภาคพื้น",
       "departureDelay": "ดีเลย์ขาออก",
       "arrivalDelay": "ดีเลย์ขาเข้า",
       "delaysReported": "รายงานดีเลย์",
+      "closure": "ปิดสนามบิน",
       "delays": "ดีเลย์",
       "avgDelay": "ดีเลย์เฉลี่ย",
       "cancelled": "ยกเลิก",
@@ -1886,6 +1987,7 @@
     "close": "ปิด",
     "currentVariant": "(ปัจจุบัน)",
     "retry": "ลองใหม่",
-    "refresh": "รีเฟรช"
+    "refresh": "รีเฟรช",
+    "all": "ทั้งหมด"
   }
 }

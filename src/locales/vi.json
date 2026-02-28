@@ -36,7 +36,8 @@
       "earthquakes": "động đất",
       "displaced": "di dời",
       "climate": "Căng thẳng khí hậu",
-      "conflictEvents": "sự kiện xung đột"
+      "conflictEvents": "sự kiện xung đột",
+      "gpsJammingZones": "GPS Jamming Zones"
     },
     "timeAgo": {
       "m": "{{count}}ph trước",
@@ -80,7 +81,7 @@
     "tech": "CÔNG NGHỆ",
     "live": "TRỰC TIẾP",
     "search": "Tìm kiếm",
-    "settings": "BẢNG ĐIỀU KHIỂN",
+    "settings": "CÀI ĐẶT",
     "sources": "NGUỒN",
     "copyLink": "Sao chép Liên kết",
     "fullscreen": "Toàn màn hình",
@@ -137,7 +138,8 @@
     "panelCatCryptoDigital": "Tiền mã hóa & Kỹ thuật số",
     "panelCatCentralBanks": "Ngân hàng Trung ương & Kinh tế",
     "panelCatDeals": "Giao dịch & Tổ chức",
-    "panelCatGulfMena": "Vùng Vịnh & MENA"
+    "panelCatGulfMena": "Vùng Vịnh & MENA",
+    "panelCatTradePolicy": "Chính sách Thương mại"
   },
   "panels": {
     "liveNews": "Tin tức Trực tiếp",
@@ -166,6 +168,7 @@
     "polymarket": "Dự đoán",
     "commodities": "Hàng hóa",
     "economic": "Chỉ số Kinh tế",
+    "tradePolicy": "Chính sách Thương mại",
     "finance": "Tài chính",
     "tech": "Công nghệ",
     "crypto": "Tiền mã hóa",
@@ -201,18 +204,21 @@
     "techReadiness": "Chỉ số Sẵn sàng Công nghệ",
     "gccInvestments": "Đầu tư GCC",
     "geoHubs": "Trung tâm Địa chính trị",
-    "liveWebcams": "Webcam Trực tiếp"
+    "liveWebcams": "Webcam Trực tiếp",
+    "securityAdvisories": "Cảnh báo An ninh",
+    "orefSirens": "Israel Sirens",
+    "telegramIntel": "Tình báo Telegram"
   },
   "modals": {
     "search": {
-      "placeholder": "Tìm tin tức, đường ống, căn cứ, thị trường...",
-      "hint": "Tin tức • Đường ống • Căn cứ • Cáp ngầm • Trung tâm dữ liệu • Thị trường",
-      "placeholderTech": "Tìm công ty, phòng thí nghiệm AI, khởi nghiệp, sự kiện...",
-      "hintTech": "Trụ sở • Công ty • Phòng thí nghiệm AI • Khởi nghiệp • Vườn ươm • Sự kiện",
-      "placeholderFinance": "Tìm sàn giao dịch, thị trường, ngân hàng trung ương...",
-      "hintFinance": "Sàn giao dịch • Trung tâm Tài chính • Ngân hàng Trung ương • Hàng hóa",
+      "placeholder": "Tìm kiếm hoặc nhập lệnh...",
+      "hint": "Tìm kiếm • Quốc gia • Lớp • Bảng • Điều hướng • Cài đặt",
+      "placeholderTech": "Tìm kiếm hoặc nhập lệnh...",
+      "hintTech": "Tìm kiếm • Công ty • Phòng thí nghiệm AI • Lớp • Điều hướng • Cài đặt",
+      "placeholderFinance": "Tìm kiếm hoặc nhập lệnh...",
+      "hintFinance": "Tìm kiếm • Sàn giao dịch • Thị trường • Lớp • Điều hướng • Cài đặt",
       "recent": "Tìm kiếm Gần đây",
-      "empty": "Tìm kiếm trên tất cả nguồn dữ liệu",
+      "empty": "Tìm dữ liệu hoặc chạy lệnh",
       "noResults": "Không có kết quả",
       "navigate": "điều hướng",
       "select": "chọn",
@@ -420,7 +426,8 @@
         "earthquakes": "động đất",
         "displaced": "di dời",
         "climate": "Căng thẳng khí hậu",
-        "conflictEvents": "sự kiện xung đột"
+        "conflictEvents": "sự kiện xung đột",
+        "gpsJammingZones": "GPS Jamming Zones"
       },
       "timeAgo": {
         "m": "{{count}}ph trước",
@@ -463,6 +470,7 @@
   "components": {
     "webcams": {
       "regions": {
+        "iran": "IRAN ATTACKS",
         "all": "TẤT CẢ",
         "mideast": "TRUNG ĐÔNG",
         "europe": "CHÂU ÂU",
@@ -523,7 +531,37 @@
       "noIndicatorData": "Chưa có dữ liệu chỉ số - FRED có thể đang tải",
       "noOilDataRetry": "Dữ liệu dầu mỏ tạm thời không khả dụng - sẽ thử lại",
       "vsPreviousWeek": "so với tuần trước",
-      "in": "trong"
+      "in": "trong",
+      "centralBanks": "Central Banks",
+      "noBisData": "BIS data temporarily unavailable - will retry",
+      "policyRate": "Policy Rate",
+      "exchangeRate": "Exchange Rate",
+      "creditToGdp": "Credit / GDP",
+      "realEer": "Real EER",
+      "change": "Change",
+      "cut": "cut",
+      "hike": "hike",
+      "hold": "hold"
+    },
+    "tradePolicy": {
+      "restrictions": "Hạn chế",
+      "tariffs": "Thuế quan",
+      "flows": "Dòng chảy Thương mại",
+      "barriers": "Rào cản",
+      "noRestrictions": "Không có hạn chế thương mại đang hoạt động",
+      "noTariffData": "Không có dữ liệu thuế quan",
+      "noFlowData": "Không có dữ liệu dòng chảy thương mại",
+      "noBarriers": "Không có rào cản thương mại được báo cáo",
+      "apiKeyMissing": "Cần khóa API WTO — thêm trong Cài đặt",
+      "upstreamUnavailable": "Dữ liệu WTO tạm thời không khả dụng — hiển thị dữ liệu đã lưu",
+      "appliedRate": "Thuế suất Áp dụng",
+      "boundRate": "Thuế suất Ràng buộc",
+      "exports": "Xuất khẩu",
+      "imports": "Nhập khẩu",
+      "yoyChange": "Thay đổi theo Năm",
+      "highTariff": "Cao",
+      "moderateTariff": "Trung bình",
+      "lowTariff": "Thấp"
     },
     "gdelt": {
       "empty": "Không có bài viết gần đây cho chủ đề này"
@@ -545,7 +583,8 @@
       "error": "Không thể tải dự đoán",
       "yes": "Có",
       "no": "Không",
-      "vol": "KL"
+      "vol": "KL",
+      "closes": "Đóng"
     },
     "stablecoins": {
       "pegHealth": "Sức khỏe Neo giá",
@@ -750,7 +789,10 @@
         "financialCenters": "Trung tâm Tài chính",
         "centralBanks": "Ngân hàng Trung ương",
         "commodityHubs": "Trung tâm Hàng hóa",
-        "gulfInvestments": "Đầu tư GCC"
+        "gulfInvestments": "Đầu tư GCC",
+        "tradeRoutes": "Tuyến Thương mại",
+        "gpsJamming": "GPS JAMMING",
+        "dayNight": "Ngày/Đêm"
       },
       "tooltip": {
         "earthquake": "Động đất",
@@ -799,7 +841,8 @@
           "geopolitical": "Địa chính trị",
           "militaryStrategic": "Quân sự & Chiến lược",
           "transport": "Vận tải",
-          "labels": "Nhãn"
+          "labels": "Nhãn",
+          "overlays": "Lớp phủ và nhãn"
         },
         "descriptions": {
           "techStartupHubs": "Hệ sinh thái khởi nghiệp lớn (SF, NYC, London, v.v.)",
@@ -840,7 +883,9 @@
           "transportShipping": "Tàu, điểm nghẽn, 61 cảng chiến lược",
           "transportDelays": "Chậm trễ sân bay và dừng mặt đất (FAA)",
           "naturalEventsFull": "Động đất (USGS) + bão, cháy, núi lửa, lũ lụt (NASA EONET)",
-          "waterwaysLabels": "Nhãn điểm nghẽn chiến lược"
+          "waterwaysLabels": "Nhãn điểm nghẽn chiến lược",
+          "tradeRoutes": "Các tuyến vận tải biển chính toàn cầu kết nối các cảng qua các điểm chiến lược",
+          "dayNight": "Đường phân chia mặt trời thời gian thực hiển thị vùng ngày và đêm"
         },
         "notes": {
           "timeAffects": "Ảnh hưởng: Động đất, Thời tiết, Biểu tình, Gián đoạn"
@@ -1100,6 +1145,19 @@
     "gdeltIntel": {
       "infoTooltip": "<strong>Tình báo GDELT</strong> Giám sát tin tức toàn cầu thời gian thực:<ul><li>Danh mục chủ đề được chọn lọc (xung đột, mạng, v.v.)</li><li>Bài viết từ hơn 100 ngôn ngữ được dịch</li><li>Cập nhật mỗi 15 phút</li></ul>Nguồn: GDELT Project (gdeltproject.org)"
     },
+    "telegramIntel": {
+      "infoTooltip": "Tín hiệu thời gian thực từ các kênh OSINT Telegram được giám sát",
+      "loading": "Đang kết nối đến relay Telegram...",
+      "empty": "Không có tin nhắn",
+      "disabled": "Relay Telegram không hoạt động",
+      "filterAll": "Tất cả",
+      "filterBreaking": "Nóng",
+      "filterConflict": "Xung đột",
+      "filterAlerts": "Cảnh báo",
+      "filterOsint": "OSINT",
+      "filterPolitics": "Chính trị",
+      "filterMiddleeast": "Trung Đông"
+    },
     "investments": {
       "infoTooltip": "Cơ sở dữ liệu đầu tư trực tiếp nước ngoài của Ả Rập Saudi và UAE vào hạ tầng quan trọng toàn cầu. Nhấp vào hàng để bay đến vị trí đầu tư trên bản đồ.",
       "searchPlaceholder": "Tìm tài sản, quốc gia, thực thể…",
@@ -1234,6 +1292,7 @@
       "addChannel": "Thêm kênh",
       "remove": "Xóa",
       "youtubeHandle": "Handle YouTube (vd: @Channel)",
+      "youtubeHandleOrUrl": "Tên kênh hoặc URL YouTube",
       "displayName": "Tên hiển thị (tùy chọn)",
       "openPanelSettings": "Cài đặt hiển thị bảng",
       "channelSettings": "Cài đặt kênh",
@@ -1248,7 +1307,41 @@
       "regionEurope": "Châu Âu",
       "regionLatinAmerica": "Mỹ Latinh",
       "regionAsia": "Châu Á",
+      "regionMiddleEast": "Trung Đông",
       "regionAfrica": "Châu Phi"
+    },
+    "securityAdvisories": {
+      "loading": "Đang tải cảnh báo du lịch...",
+      "noMatching": "Không có cảnh báo cho bộ lọc này",
+      "critical": "Nghiêm trọng",
+      "health": "Sức khỏe",
+      "sources": "US State Dept, AU DFAT, UK FCDO, NZ MFAT, CDC, ECDC, WHO, US Embassies",
+      "refresh": "Làm mới",
+      "levels": {
+        "doNotTravel": "Không du lịch",
+        "reconsider": "Cân nhắc lại",
+        "caution": "Thận trọng",
+        "normal": "Bình thường",
+        "info": "Thông tin"
+      },
+      "time": {
+        "justNow": "vừa xong",
+        "minutesAgo": "{{count}} phút trước",
+        "hoursAgo": "{{count}} giờ trước",
+        "daysAgo": "{{count}} ngày trước"
+      },
+      "infoTooltip": "<strong>Cảnh báo An ninh</strong><br>Cảnh báo du lịch và an ninh từ các cơ quan chính phủ."
+    },
+    "orefSirens": {
+      "checking": "Checking siren alerts...",
+      "noAlerts": "No active sirens — all clear",
+      "notConfigured": "Sirens service not configured",
+      "activeSirens": "{{count}} active siren(s)",
+      "area": "Area",
+      "time": "Time",
+      "justNow": "just now",
+      "historyCount": "{{count}} alerts in last 24h",
+      "infoTooltip": "<strong>Israel Sirens</strong><br>Real-time rocket and missile siren alerts from Israel Home Front Command.<br><br>Data is polled every 10 seconds. A pulsing red indicator means active sirens are sounding."
     }
   },
   "popups": {
@@ -1302,12 +1395,20 @@
       "riots": "Bạo loạn",
       "highSeverity": "Mức nghiêm trọng Cao"
     },
+    "gpsJamming": {
+      "title": "Nhiễu GPS/GNSS",
+      "interference": "Nhiễu",
+      "aircraftAffected": "Máy bay bị ảnh hưởng",
+      "aircraftNormal": "Máy bay bình thường",
+      "h3Hex": "H3 Hex"
+    },
     "flight": {
       "groundStop": "DỪNG MẶT ĐẤT",
       "groundDelay": "CHƯƠNG TRÌNH TRÌ HOÃN MẶT ĐẤT",
       "departureDelay": "TRÌ HOÃN KHỞI HÀNH",
       "arrivalDelay": "TRÌ HOÃN ĐẾN",
       "delaysReported": "BÁO CÁO TRÌ HOÃN",
+      "closure": "ĐÓNG CỬA SÂN BAY",
       "delays": "TRÌ HOÃN",
       "avgDelay": "TRÌ HOÃN TB",
       "cancelled": "HỦY CHUYẾN",
@@ -1886,6 +1987,7 @@
     "close": "Đóng",
     "currentVariant": "(hiện tại)",
     "retry": "Thử lại",
-    "refresh": "Làm mới"
+    "refresh": "Làm mới",
+    "all": "Tất cả"
   }
 }

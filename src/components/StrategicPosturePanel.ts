@@ -7,7 +7,6 @@ import { t } from '../services/i18n';
 
 export class StrategicPosturePanel extends Panel {
   private postures: TheaterPostureSummary[] = [];
-  private refreshInterval: ReturnType<typeof setInterval> | null = null;
   private vesselTimeouts: ReturnType<typeof setTimeout>[] = [];
   private loadingElapsedInterval: ReturnType<typeof setInterval> | null = null;
   private loadingStartTime: number = 0;
@@ -28,8 +27,7 @@ export class StrategicPosturePanel extends Panel {
 
   private init(): void {
     this.showLoading();
-    this.fetchAndRender();
-    this.startAutoRefresh();
+    void this.fetchAndRender();
     // Re-augment with vessels after stream has had time to populate
     // AIS data accumulates gradually - check at 30s, 60s, 90s, 120s
     this.vesselTimeouts.push(setTimeout(() => this.reaugmentVessels(), 30 * 1000));
@@ -38,12 +36,12 @@ export class StrategicPosturePanel extends Panel {
     this.vesselTimeouts.push(setTimeout(() => this.reaugmentVessels(), 120 * 1000));
   }
 
-  private startAutoRefresh(): void {
-    this.refreshInterval = setInterval(() => this.fetchAndRender(), 5 * 60 * 1000);
+  private isPanelVisible(): boolean {
+    return !this.element.classList.contains('hidden');
   }
 
   private async reaugmentVessels(): Promise<void> {
-    if (this.postures.length === 0) return;
+    if (!this.isPanelVisible() || this.postures.length === 0) return;
     console.log('[StrategicPosturePanel] Re-augmenting with vessels...');
     await this.augmentWithVessels();
     this.render();
@@ -118,6 +116,8 @@ export class StrategicPosturePanel extends Panel {
   }
 
   private async fetchAndRender(): Promise<void> {
+    if (!this.isPanelVisible()) return;
+
     try {
       // Fetch aircraft data from server
       this.showLoadingStage('aircraft');
@@ -145,7 +145,9 @@ export class StrategicPosturePanel extends Panel {
 
       // If we rendered stale localStorage data, re-fetch fresh after a short delay
       if (this.isStale) {
-        setTimeout(() => this.fetchAndRender(), 3000);
+        setTimeout(() => {
+          void this.fetchAndRender();
+        }, 3000);
       }
     } catch (error) {
       if (this.isAbortError(error)) return;
@@ -287,8 +289,8 @@ export class StrategicPosturePanel extends Panel {
     }
   }
 
-  public refresh(): void {
-    this.fetchAndRender();
+  public async refresh(): Promise<void> {
+    return this.fetchAndRender();
   }
 
   private showNoData(): void {
@@ -509,8 +511,15 @@ export class StrategicPosturePanel extends Panel {
     return this.postures;
   }
 
+  public override show(): void {
+    const wasHidden = this.element.classList.contains('hidden');
+    super.show();
+    if (wasHidden) {
+      void this.fetchAndRender();
+    }
+  }
+
   public destroy(): void {
-    if (this.refreshInterval) clearInterval(this.refreshInterval);
     this.stopLoadingTimer();
     this.vesselTimeouts.forEach(t => clearTimeout(t));
     this.vesselTimeouts = [];

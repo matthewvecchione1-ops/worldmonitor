@@ -60,6 +60,7 @@ export default async function handler(request) {
 
   const autoplay = parseFlag(url.searchParams.get('autoplay'), '1');
   const mute = parseFlag(url.searchParams.get('mute'), '1');
+  const vq = ['small', 'medium', 'large', 'hd720', 'hd1080'].includes(url.searchParams.get('vq') || '') ? url.searchParams.get('vq') : '';
 
   const origin = sanitizeOrigin(url.searchParams.get('origin'));
   const parentOrigin = sanitizeParentOrigin(url.searchParams.get('parentOrigin'), origin);
@@ -121,6 +122,7 @@ export default async function handler(request) {
         events:{
           onReady:function(){
             window.parent.postMessage({type:'yt-ready'},parentOrigin);
+            ${vq ? `if(player.setPlaybackQuality)player.setPlaybackQuality('${vq}');` : ''}
             if(${autoplay}===1){player.playVideo()}
             startMuteSync();
           },
@@ -146,6 +148,7 @@ export default async function handler(request) {
         case'mute':player.mute();break;
         case'unmute':player.unMute();break;
         case'loadVideo':if(m.videoId)player.loadVideoById(m.videoId);break;
+        case'setQuality':if(m.quality&&player.setPlaybackQuality)player.setPlaybackQuality(m.quality);break;
       }
     });
   </script>
@@ -156,7 +159,7 @@ export default async function handler(request) {
     status: 200,
     headers: {
       'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'public, s-maxage=60, stale-while-revalidate=300',
+      'cache-control': 'public, s-maxage=900, stale-while-revalidate=300',
     },
   });
 }

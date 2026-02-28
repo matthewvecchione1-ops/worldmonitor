@@ -27,10 +27,6 @@ export interface ListWorldBankIndicatorsRequest {
   indicatorCode: string;
   countryCode: string;
   year: number;
-  pagination?: PaginationRequest;
-}
-
-export interface PaginationRequest {
   pageSize: number;
   cursor: string;
 }
@@ -166,6 +162,53 @@ export interface EnergyCapacityYear {
   capacityMw: number;
 }
 
+export interface GetBisPolicyRatesRequest {
+}
+
+export interface GetBisPolicyRatesResponse {
+  rates: BisPolicyRate[];
+}
+
+export interface BisPolicyRate {
+  countryCode: string;
+  countryName: string;
+  rate: number;
+  previousRate: number;
+  date: string;
+  centralBank: string;
+}
+
+export interface GetBisExchangeRatesRequest {
+}
+
+export interface GetBisExchangeRatesResponse {
+  rates: BisExchangeRate[];
+}
+
+export interface BisExchangeRate {
+  countryCode: string;
+  countryName: string;
+  realEer: number;
+  nominalEer: number;
+  realChange: number;
+  date: string;
+}
+
+export interface GetBisCreditRequest {
+}
+
+export interface GetBisCreditResponse {
+  entries: BisCreditToGdp[];
+}
+
+export interface BisCreditToGdp {
+  countryCode: string;
+  countryName: string;
+  creditGdpRatio: number;
+  previousRatio: number;
+  date: string;
+}
+
 export interface FieldViolation {
   field: string;
   description: string;
@@ -215,8 +258,11 @@ export class EconomicServiceClient {
   }
 
   async getFredSeries(req: GetFredSeriesRequest, options?: EconomicServiceCallOptions): Promise<GetFredSeriesResponse> {
-    let path = "/api/economic/v1/get-fred-series";
-    const url = this.baseURL + path;
+    const path = "/api/economic/v1/get-fred-series";
+    const params = new URLSearchParams();
+    if (req.seriesId != null && req.seriesId !== "") params.set("series_id", req.seriesId);
+    if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
+    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -225,9 +271,8 @@ export class EconomicServiceClient {
     };
 
     const resp = await this.fetchFn(url, {
-      method: "POST",
+      method: "GET",
       headers,
-      body: JSON.stringify(req),
       signal: options?.signal,
     });
 
@@ -240,7 +285,13 @@ export class EconomicServiceClient {
 
   async listWorldBankIndicators(req: ListWorldBankIndicatorsRequest, options?: EconomicServiceCallOptions): Promise<ListWorldBankIndicatorsResponse> {
     let path = "/api/economic/v1/list-world-bank-indicators";
-    const url = this.baseURL + path;
+    const params = new URLSearchParams();
+    if (req.indicatorCode != null && req.indicatorCode !== "") params.set("indicator_code", String(req.indicatorCode));
+    if (req.countryCode != null && req.countryCode !== "") params.set("country_code", String(req.countryCode));
+    if (req.year != null && req.year !== 0) params.set("year", String(req.year));
+    if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
+    if (req.cursor != null && req.cursor !== "") params.set("cursor", String(req.cursor));
+    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -249,9 +300,8 @@ export class EconomicServiceClient {
     };
 
     const resp = await this.fetchFn(url, {
-      method: "POST",
+      method: "GET",
       headers,
-      body: JSON.stringify(req),
       signal: options?.signal,
     });
 
@@ -264,7 +314,9 @@ export class EconomicServiceClient {
 
   async getEnergyPrices(req: GetEnergyPricesRequest, options?: EconomicServiceCallOptions): Promise<GetEnergyPricesResponse> {
     let path = "/api/economic/v1/get-energy-prices";
-    const url = this.baseURL + path;
+    const params = new URLSearchParams();
+    if (req.commodities && req.commodities.length > 0) req.commodities.forEach(v => params.append("commodities", v));
+    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -273,9 +325,8 @@ export class EconomicServiceClient {
     };
 
     const resp = await this.fetchFn(url, {
-      method: "POST",
+      method: "GET",
       headers,
-      body: JSON.stringify(req),
       signal: options?.signal,
     });
 
@@ -286,7 +337,7 @@ export class EconomicServiceClient {
     return await resp.json() as GetEnergyPricesResponse;
   }
 
-  async getMacroSignals(req: GetMacroSignalsRequest, options?: EconomicServiceCallOptions): Promise<GetMacroSignalsResponse> {
+  async getMacroSignals(_req: GetMacroSignalsRequest, options?: EconomicServiceCallOptions): Promise<GetMacroSignalsResponse> {
     let path = "/api/economic/v1/get-macro-signals";
     const url = this.baseURL + path;
 
@@ -297,9 +348,8 @@ export class EconomicServiceClient {
     };
 
     const resp = await this.fetchFn(url, {
-      method: "POST",
+      method: "GET",
       headers,
-      body: JSON.stringify(req),
       signal: options?.signal,
     });
 
@@ -312,6 +362,32 @@ export class EconomicServiceClient {
 
   async getEnergyCapacity(req: GetEnergyCapacityRequest, options?: EconomicServiceCallOptions): Promise<GetEnergyCapacityResponse> {
     let path = "/api/economic/v1/get-energy-capacity";
+    const params = new URLSearchParams();
+    if (req.energySources && req.energySources.length > 0) req.energySources.forEach(v => params.append("energy_sources", v));
+    if (req.years != null && req.years !== 0) params.set("years", String(req.years));
+    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as GetEnergyCapacityResponse;
+  }
+
+  async getBisPolicyRates(_req: GetBisPolicyRatesRequest, options?: EconomicServiceCallOptions): Promise<GetBisPolicyRatesResponse> {
+    let path = "/api/economic/v1/get-bis-policy-rates";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -321,9 +397,8 @@ export class EconomicServiceClient {
     };
 
     const resp = await this.fetchFn(url, {
-      method: "POST",
+      method: "GET",
       headers,
-      body: JSON.stringify(req),
       signal: options?.signal,
     });
 
@@ -331,7 +406,53 @@ export class EconomicServiceClient {
       return this.handleError(resp);
     }
 
-    return await resp.json() as GetEnergyCapacityResponse;
+    return await resp.json() as GetBisPolicyRatesResponse;
+  }
+
+  async getBisExchangeRates(_req: GetBisExchangeRatesRequest, options?: EconomicServiceCallOptions): Promise<GetBisExchangeRatesResponse> {
+    let path = "/api/economic/v1/get-bis-exchange-rates";
+    const url = this.baseURL + path;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as GetBisExchangeRatesResponse;
+  }
+
+  async getBisCredit(_req: GetBisCreditRequest, options?: EconomicServiceCallOptions): Promise<GetBisCreditResponse> {
+    let path = "/api/economic/v1/get-bis-credit";
+    const url = this.baseURL + path;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as GetBisCreditResponse;
   }
 
   private async handleError(resp: Response): Promise<never> {

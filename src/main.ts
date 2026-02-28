@@ -20,7 +20,7 @@ Sentry.init({
   ignoreErrors: [
     'Invalid WebGL2RenderingContext',
     'WebGL context lost',
-    /reading 'imageManager'/,
+    /imageManager/,
     /ResizeObserver loop/,
     /NotAllowedError/,
     /InvalidAccessError/,
@@ -47,7 +47,7 @@ Sentry.init({
     /Java bridge method invocation error/,
     /Could not compile fragment shader/,
     /can't redefine non-configurable property/,
-    /Can.t find variable: (CONFIG|currentInset|NP)/,
+    /Can.t find variable: (CONFIG|currentInset|NP|webkit)/,
     /invalid origin/,
     /\.data\.split is not a function/,
     /signal is aborted without reason/,
@@ -77,7 +77,7 @@ Sentry.init({
     /setting 'luma'/,
     /ML request .* timed out/,
     /^Element not found$/,
-    /^The operation was aborted\.?\s*$/,
+    /(?:AbortError: )?The operation was aborted\.?\s*$/,
     /Unexpected end of script/,
     /error loading dynamically imported module/,
     /Style is not done loading/,
@@ -94,20 +94,56 @@ Sentry.init({
     /Cannot define multiple custom elements/,
     /maxTextureDimension2D/,
     /Container app not found/,
+    /this\.St\.unref/,
+    /Invalid or unexpected token/,
+    /evaluating 'elemFound\.value'/,
+    /[Cc]an(?:'t|not) access (?:'\w+'|lexical declaration '\w+') before initialization/,
+    /^Uint8Array$/,
+    /createObjectStore/,
+    /The database connection is closing/,
+    /shortcut icon/,
+    /Attempting to change value of a readonly property/,
+    /reading 'nodeType'/,
+    /feature named .pageContext. was not found/,
+    /a2z\.onStatusUpdate/,
+    /Attempting to run\(\), but is already running/,
+    /this\.player\.destroy is not a function/,
+    /isReCreate is not defined/,
+    /reading 'style'.*HTMLImageElement/,
+    /can't access property "write", \w+ is undefined/,
+    /AbortError: The user aborted a request/,
+    /\w+ is not a function.*\/uv\/service\//,
+    /__isInQueue__/,
+    /^(?:LIDNotify(?:Id)?|onWebViewAppeared|onGetWiFiBSSID) is not defined$/,
+    /signal timed out/,
+    /Se requiere plan premium/,
+    /hybridExecute is not defined/,
+    /reading 'postMessage'/,
+    /NotSupportedError/,
+    /appendChild.*Unexpected token/,
+    /\bmag is not defined\b/,
+    /evaluating '[^']*\.luma/,
+    /translateNotifyError/,
   ],
   beforeSend(event) {
     const msg = event.exception?.values?.[0]?.value ?? '';
     if (msg.length <= 3 && /^[a-zA-Z_$]+$/.test(msg)) return null;
     const frames = event.exception?.values?.[0]?.stacktrace?.frames ?? [];
     // Suppress maplibre internal null-access crashes (light, placement) only when stack is in map chunk
-    if (/this\.style\._layers|reading '_layers'|this\.light is null|can't access property "(id|type|setFilter)", \w+ is (null|undefined)|Cannot read properties of null \(reading '(id|type|setFilter|_layers)'\)|null is not an object \(evaluating '(E\.|this\.style)|^\w{1,2} is null$/.test(msg)) {
-      if (frames.some(f => /\/(map|deck-stack)-[A-Za-z0-9]+\.js/.test(f.filename ?? ''))) return null;
+    if (/this\.style\._layers|reading '_layers'|this\.light is null|can't access property "(id|type|setFilter)", \w+ is (null|undefined)|Cannot read properties of null \(reading '(id|type|setFilter|_layers)'\)|null is not an object \(evaluating '\w{1,3}\.(id|style)|^\w{1,2} is null$/.test(msg)) {
+      if (frames.some(f => /\/(map|maplibre|deck-stack)-[A-Za-z0-9-]+\.js/.test(f.filename ?? ''))) return null;
     }
     // Suppress any TypeError that happens entirely within maplibre or deck.gl internals
     if (/^TypeError:/.test(msg) && frames.length > 0) {
-      const appFrames = frames.filter(f => f.in_app && !/\/sentry-[A-Za-z0-9]+\.js/.test(f.filename ?? ''));
-      if (appFrames.length > 0 && appFrames.every(f => /\/(map|deck-stack)-[A-Za-z0-9]+\.js/.test(f.filename ?? ''))) return null;
+      const nonSentryFrames = frames.filter(f => f.filename && f.filename !== '<anonymous>' && !/\/sentry-[A-Za-z0-9-]+\.js/.test(f.filename));
+      if (nonSentryFrames.length > 0 && nonSentryFrames.every(f => /\/(map|maplibre|deck-stack)-[A-Za-z0-9-]+\.js/.test(f.filename ?? ''))) return null;
     }
+    // Suppress errors originating entirely from blob: URLs (browser extensions)
+    if (frames.length > 0 && frames.every(f => /^blob:/.test(f.filename ?? ''))) return null;
+    // Suppress YouTube IFrame widget API internal errors
+    if (frames.some(f => /www-widgetapi\.js/.test(f.filename ?? ''))) return null;
+    // Suppress Sentry SDK internal crashes (logs.js)
+    if (frames.some(f => /\/ingest\/static\/logs\.js/.test(f.filename ?? ''))) return null;
     return event;
   },
 });
@@ -117,9 +153,9 @@ window.addEventListener('unhandledrejection', (e) => {
   if (e.reason?.name === 'NotAllowedError') e.preventDefault();
 });
 
-import { debugInjectTestEvents, debugGetCells, getCellCount } from '@/services/geo-convergence';
+import { debugGetCells, getCellCount } from '@/services/geo-convergence';
 import { initMetaTags } from '@/services/meta-tags';
-import { installRuntimeFetchPatch } from '@/services/runtime';
+import { installRuntimeFetchPatch, installWebApiRedirect } from '@/services/runtime';
 import { loadDesktopSecrets } from '@/services/runtime-config';
 import { initAnalytics, trackApiKeysSnapshot } from '@/services/analytics';
 import { applyStoredTheme } from '@/utils/theme-manager';
@@ -140,6 +176,8 @@ initMetaTags();
 
 // In desktop mode, route /api/* calls to the local Tauri sidecar backend.
 installRuntimeFetchPatch();
+// In web production, route RPC calls through api.worldmonitor.app (Cloudflare edge).
+installWebApiRedirect();
 loadDesktopSecrets().then(async () => {
   await initAnalytics();
   trackApiKeysSnapshot();
@@ -191,7 +229,6 @@ if (urlParams.get('settings') === '1') {
 
 // Debug helpers for geo-convergence testing (remove in production)
 (window as unknown as Record<string, unknown>).geoDebug = {
-  inject: debugInjectTestEvents,
   cells: debugGetCells,
   count: getCellCount,
 };

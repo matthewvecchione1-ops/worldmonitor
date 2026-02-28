@@ -7,7 +7,7 @@ import { promisify } from 'util';
 import pkg from './package.json';
 
 const isE2E = process.env.VITE_E2E === '1';
-
+const isDesktopBuild = process.env.VITE_DESKTOP_RUNTIME === '1';
 
 const brotliCompressAsync = promisify(brotliCompress);
 const BROTLI_EXTENSIONS = new Set(['.js', '.mjs', '.css', '.html', '.svg', '.json', '.txt', '.xml', '.wasm']);
@@ -189,6 +189,20 @@ function htmlVariantPlugin(): Plugin {
         );
       }
 
+      // Desktop CSP: inject localhost wildcard for dynamic sidecar port.
+      // Web builds intentionally exclude localhost to avoid exposing attack surface.
+      if (isDesktopBuild) {
+        result = result
+          .replace(
+            /connect-src 'self' https: http:\/\/localhost:5173/,
+            "connect-src 'self' https: http://localhost:5173 http://127.0.0.1:*"
+          )
+          .replace(
+            /frame-src 'self'/,
+            "frame-src 'self' http://127.0.0.1:*"
+          );
+      }
+
       // Favicon variant paths — replace /favico/ paths with variant-specific subdirectory
       if (activeVariant !== 'full') {
         result = result
@@ -284,6 +298,7 @@ function sebufApiPlugin(): Plugin {
       militaryServerMod, militaryHandlerMod,
       positiveEventsServerMod, positiveEventsHandlerMod,
       givingServerMod, givingHandlerMod,
+      tradeServerMod, tradeHandlerMod,
     ] = await Promise.all([
         import('./server/router'),
         import('./server/cors'),
@@ -326,6 +341,8 @@ function sebufApiPlugin(): Plugin {
         import('./server/worldmonitor/positive-events/v1/handler'),
         import('./src/generated/server/worldmonitor/giving/v1/service_server'),
         import('./server/worldmonitor/giving/v1/handler'),
+        import('./src/generated/server/worldmonitor/trade/v1/service_server'),
+        import('./server/worldmonitor/trade/v1/handler'),
       ]);
 
     const serverOptions = { onError: errorMod.mapErrorToResponse };
@@ -349,6 +366,7 @@ function sebufApiPlugin(): Plugin {
       ...militaryServerMod.createMilitaryServiceRoutes(militaryHandlerMod.militaryHandler, serverOptions),
       ...positiveEventsServerMod.createPositiveEventsServiceRoutes(positiveEventsHandlerMod.positiveEventsHandler, serverOptions),
       ...givingServerMod.createGivingServiceRoutes(givingHandlerMod.givingHandler, serverOptions),
+      ...tradeServerMod.createTradeServiceRoutes(tradeHandlerMod.tradeHandler, serverOptions),
     ];
     cachedCorsMod = corsMod;
     return routerMod.createRouter(allRoutes);
@@ -479,7 +497,7 @@ const RSS_PROXY_ALLOWED_DOMAINS = new Set([
   'www.fema.gov', 'www.dhs.gov', 'www.thedrive.com', 'krebsonsecurity.com',
   'finance.yahoo.com', 'thediplomat.com', 'venturebeat.com', 'foreignpolicy.com',
   'www.ft.com', 'openai.com', 'www.reutersagency.com', 'feeds.reuters.com',
-  'rsshub.app', 'asia.nikkei.com', 'www.cfr.org', 'www.csis.org', 'www.politico.com',
+  'asia.nikkei.com', 'www.cfr.org', 'www.csis.org', 'www.politico.com',
   'www.brookings.edu', 'layoffs.fyi', 'www.defensenews.com', 'www.militarytimes.com',
   'taskandpurpose.com', 'news.usni.org', 'www.oryxspioenkop.com', 'www.gov.uk',
   'www.foreignaffairs.com', 'www.atlanticcouncil.org',
@@ -488,7 +506,7 @@ const RSS_PROXY_ALLOWED_DOMAINS = new Set([
   'rss.politico.com', 'www.anandtech.com', 'www.tomshardware.com', 'www.semianalysis.com',
   'feed.infoq.com', 'thenewstack.io', 'devops.com', 'dev.to', 'lobste.rs', 'changelog.com',
   'seekingalpha.com', 'news.crunchbase.com', 'www.saastr.com', 'feeds.feedburner.com',
-  'www.producthunt.com', 'www.axios.com', 'github.blog', 'githubnext.com',
+  'www.producthunt.com', 'www.axios.com', 'api.axios.com', 'github.blog', 'githubnext.com',
   'mshibanami.github.io', 'www.engadget.com', 'news.mit.edu', 'dev.events',
   'www.ycombinator.com', 'a16z.com', 'review.firstround.com', 'www.sequoiacap.com',
   'www.nfx.com', 'www.aaronsw.com', 'bothsidesofthetable.com', 'www.lennysnewsletter.com',
@@ -948,12 +966,6 @@ export default defineConfig({
         target: 'https://feeds.npr.org',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/rss\/npr/, ''),
-      },
-      // RSS Feeds - AP News
-      '/rss/apnews': {
-        target: 'https://rsshub.app/apnews',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/rss\/apnews/, ''),
       },
       // RSS Feeds - Al Jazeera
       '/rss/aljazeera': {

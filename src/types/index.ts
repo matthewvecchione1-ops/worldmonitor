@@ -304,6 +304,16 @@ export interface MilitaryBase {
   source?: string;            // Reference URL
 }
 
+export interface MilitaryBaseEnriched extends MilitaryBase {
+  kind?: string;
+  tier?: number;
+  catAirforce?: boolean;
+  catNaval?: boolean;
+  catNuclear?: boolean;
+  catSpace?: boolean;
+  catTraining?: boolean;
+}
+
 export interface CableLandingPoint {
   country: string;       // ISO code
   countryName: string;
@@ -529,6 +539,14 @@ export interface MapLayers {
   happiness: boolean;
   speciesRecovery: boolean;
   renewableInstallations: boolean;
+  // Trade route layers
+  tradeRoutes: boolean;
+  // Iran attacks layer
+  iranAttacks: boolean;
+  // GPS/GNSS interference layer
+  gpsJamming: boolean;
+  // Overlay layers
+  dayNight: boolean;
 }
 
 export interface AIDataCenter {

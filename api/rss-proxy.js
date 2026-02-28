@@ -51,6 +51,7 @@ const ALLOWED_DOMAINS = [
   'feeds.npr.org',
   'news.google.com',
   'www.aljazeera.com',
+  'www.aljazeera.net',
   'rss.cnn.com',
   'hnrss.org',
   'feeds.arstechnica.com',
@@ -85,7 +86,6 @@ const ALLOWED_DOMAINS = [
   'openai.com',
   'www.reutersagency.com',
   'feeds.reuters.com',
-  'rsshub.app',
   'asia.nikkei.com',
   'www.cfr.org',
   'www.csis.org',
@@ -105,6 +105,7 @@ const ALLOWED_DOMAINS = [
   'www.techmeme.com',
   'www.darkreading.com',
   'www.schneier.com',
+  'www.ransomware.live',
   'rss.politico.com',
   'www.anandtech.com',
   'www.tomshardware.com',
@@ -122,6 +123,7 @@ const ALLOWED_DOMAINS = [
   // Additional tech variant domains
   'www.producthunt.com',
   'www.axios.com',
+  'api.axios.com',
   'github.blog',
   'githubnext.com',
   'mshibanami.github.io',
@@ -163,15 +165,24 @@ const ALLOWED_DOMAINS = [
   'www.scmp.com',
   'kyivindependent.com',
   'www.themoscowtimes.com',
+  'www.rt.com',
   'feeds.24.com',
+  'feeds.news24.com',  // News24 main feed domain
   'feeds.capi24.com',  // News24 redirect destination
   // International News Sources
   'www.france24.com',
   'www.euronews.com',
+  'de.euronews.com',
+  'es.euronews.com',
+  'fr.euronews.com',
+  'it.euronews.com',
+  'pt.euronews.com',
+  'ru.euronews.com',
   'www.lemonde.fr',
   'rss.dw.com',
   'www.bild.de',
   'www.africanews.com',
+  'fr.africanews.com',
   // Nigeria
   'www.premiumtimesng.com',
   'www.vanguardngr.com',
@@ -186,6 +197,9 @@ const ALLOWED_DOMAINS = [
   'www.channelnewsasia.com',
   'japantoday.com',
   'www.thehindu.com',
+  'indianexpress.com',
+  'www.twz.com',
+  'gcaptain.com',
   // International Organizations
   'news.un.org',
   'www.iaea.org',
@@ -218,6 +232,30 @@ const ALLOWED_DOMAINS = [
   'www.fao.org',
   'worldbank.org',
   'www.imf.org',
+  // International news (various languages)
+  'www.bbc.com',
+  'www.spiegel.de',
+  'www.tagesschau.de',
+  'newsfeed.zeit.de',
+  'feeds.elpais.com',
+  'e00-elmundo.uecdn.es',
+  'www.repubblica.it',
+  'www.ansa.it',
+  'xml2.corriereobjects.it',
+  'feeds.nos.nl',
+  'www.nrc.nl',
+  'www.telegraaf.nl',
+  'www.dn.se',
+  'www.svd.se',
+  'www.svt.se',
+  'www.asahi.com',
+  'www.clarin.com',
+  'oglobo.globo.com',
+  'feeds.folha.uol.com.br',
+  'www.eltiempo.com',
+  'www.eluniversal.com.mx',
+  'www.jeuneafrique.com',
+  'www.lorientlejour.com',
   // Regional locale feeds (tr, pl, ru, th, vi, pt)
   'www.hurriyet.com.tr',
   'tvn24.pl',
@@ -242,15 +280,47 @@ const ALLOWED_DOMAINS = [
   'seekingalpha.com',
   'www.coindesk.com',
   'cointelegraph.com',
+  // Security advisories — government travel advisory feeds
+  'travel.state.gov',
+  'www.smartraveller.gov.au',
+  'www.safetravel.govt.nz',
+  // US Embassy security alerts
+  'th.usembassy.gov',
+  'ae.usembassy.gov',
+  'de.usembassy.gov',
+  'ua.usembassy.gov',
+  'mx.usembassy.gov',
+  'in.usembassy.gov',
+  'pk.usembassy.gov',
+  'co.usembassy.gov',
+  'pl.usembassy.gov',
+  'bd.usembassy.gov',
+  'it.usembassy.gov',
+  'do.usembassy.gov',
+  'mm.usembassy.gov',
+  // Health advisories
+  'wwwnc.cdc.gov',
+  'www.ecdc.europa.eu',
+  'www.who.int',
+  'www.afro.who.int',
   // Happy variant — positive news sources
   'www.goodnewsnetwork.org',
   'www.positive.news',
   'reasonstobecheerful.world',
   'www.optimistdaily.com',
+  'www.upworthy.com',
+  'www.dailygood.org',
+  'www.goodgoodgood.co',
+  'www.good.is',
   'www.sunnyskyz.com',
-  'www.huffpost.com',
+  'thebetterindia.com',
+  'singularityhub.com',
+  'humanprogress.org',
+  'greatergood.berkeley.edu',
+  'www.onlygoodnewsdaily.com',
   'www.sciencedaily.com',
   'feeds.nature.com',
+  'www.nature.com',
   'www.livescience.com',
   'www.newscientist.com',
 ];
@@ -276,8 +346,20 @@ export default async function handler(req) {
   try {
     const parsedUrl = new URL(feedUrl);
 
-    // Security: Check if domain is allowed
-    if (!ALLOWED_DOMAINS.includes(parsedUrl.hostname)) {
+    // Block deprecated feed domains (stale clients still request these)
+    const BLOCKED_DOMAINS = ['rsshub.app'];
+    if (BLOCKED_DOMAINS.includes(parsedUrl.hostname)) {
+      return new Response(JSON.stringify({ error: 'Feed deprecated' }), {
+        status: 410,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+
+    // Security: Check if domain is allowed (normalize www prefix)
+    const hostname = parsedUrl.hostname;
+    const bare = hostname.replace(/^www\./, '');
+    const withWww = hostname.startsWith('www.') ? hostname : `www.${hostname}`;
+    if (!ALLOWED_DOMAINS.includes(hostname) && !ALLOWED_DOMAINS.includes(bare) && !ALLOWED_DOMAINS.includes(withWww)) {
       return new Response(JSON.stringify({ error: 'Domain not allowed' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },

@@ -12,6 +12,7 @@ import {
   LAYER_TO_SOURCE,
 } from '@/config';
 import { INTEL_HOTSPOTS, CONFLICT_ZONES } from '@/config/geo';
+import { tokenizeForMatch, matchKeyword } from '@/utils/keyword-match';
 import {
   fetchCategoryFeeds,
   getFeedFailures,
@@ -45,9 +46,18 @@ import {
   fetchNaturalEvents,
   fetchRecentAwards,
   fetchOilAnalytics,
+  fetchBisData,
   fetchCyberThreats,
   drainTrendingSignals,
+  fetchTradeRestrictions,
+  fetchTariffTrends,
+  fetchTradeFlows,
+  fetchTradeBarriers,
+  fetchShippingRates,
+  fetchChokepointStatus,
+  fetchCriticalMinerals,
 } from '@/services';
+import { checkBatchForBreakingAlerts } from '@/services/breaking-news-alerts';
 import { mlWorker } from '@/services/ml-worker';
 import { clusterNewsHybrid } from '@/services/clustering';
 import { ingestProtests, ingestFlights, ingestVessels, ingestEarthquakes, detectGeoConvergence, geoConvergenceToSignal } from '@/services/geo-convergence';
@@ -56,16 +66,22 @@ import { updateAndCheck } from '@/services/temporal-baseline';
 import { fetchAllFires, flattenFires, computeRegionStats, toMapFires } from '@/services/wildfires';
 import { analyzeFlightsForSurge, surgeAlertToSignal, detectForeignMilitaryPresence, foreignPresenceToSignal, type TheaterPostureSummary } from '@/services/military-surge';
 import { fetchCachedTheaterPosture } from '@/services/cached-theater-posture';
-import { ingestProtestsForCII, ingestMilitaryForCII, ingestNewsForCII, ingestOutagesForCII, ingestConflictsForCII, ingestUcdpForCII, ingestHapiForCII, ingestDisplacementForCII, ingestClimateForCII, isInLearningMode } from '@/services/country-instability';
+import { ingestProtestsForCII, ingestMilitaryForCII, ingestNewsForCII, ingestOutagesForCII, ingestConflictsForCII, ingestUcdpForCII, ingestHapiForCII, ingestDisplacementForCII, ingestClimateForCII, ingestStrikesForCII, ingestOrefForCII, ingestAviationForCII, ingestAdvisoriesForCII, ingestGpsJammingForCII, isInLearningMode } from '@/services/country-instability';
+import { fetchGpsInterference } from '@/services/gps-interference';
 import { dataFreshness, type DataSourceId } from '@/services/data-freshness';
-import { fetchConflictEvents, fetchUcdpClassifications, fetchHapiSummary, fetchUcdpEvents, deduplicateAgainstAcled } from '@/services/conflict';
+import { fetchConflictEvents, fetchUcdpClassifications, fetchHapiSummary, fetchUcdpEvents, deduplicateAgainstAcled, fetchIranEvents } from '@/services/conflict';
 import { fetchUnhcrPopulation } from '@/services/displacement';
 import { fetchClimateAnomalies } from '@/services/climate';
+import { fetchSecurityAdvisories } from '@/services/security-advisories';
+import { fetchTelegramFeed } from '@/services/telegram-intel';
+import { fetchOrefAlerts, startOrefPolling, stopOrefPolling, onOrefAlertsUpdate } from '@/services/oref-alerts';
 import { enrichEventsWithExposure } from '@/services/population-exposure';
 import { debounce, getCircuitBreakerCooldownInfo } from '@/utils';
 import { isFeatureAvailable } from '@/services/runtime-config';
 import { getAiFlowSettings } from '@/services/ai-flow-settings';
 import { t } from '@/services/i18n';
+import { getHydratedData } from '@/services/bootstrap';
+import type { GetSectorSummaryResponse } from '@/generated/client/worldmonitor/market/v1/service_client';
 import { maybeShowDownloadBanner } from '@/components/DownloadBanner';
 import { mountCommunityWidget } from '@/components/CommunityWidget';
 import { ResearchServiceClient } from '@/generated/client/worldmonitor/research/v1/service_client';
@@ -85,6 +101,11 @@ import {
   DisplacementPanel,
   ClimateAnomalyPanel,
   PopulationExposurePanel,
+  TradePolicyPanel,
+  SupplyChainPanel,
+  SecurityAdvisoriesPanel,
+  OrefSirensPanel,
+  TelegramIntelPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { classifyNewsItem } from '@/services/positive-classifier';
@@ -127,7 +148,9 @@ export class DataLoaderManager implements AppModule {
 
   init(): void {}
 
-  destroy(): void {}
+  destroy(): void {
+    stopOrefPolling();
+  }
 
   private shouldShowIntelligenceNotifications(): boolean {
     return !this.ctx.isMobile && !!this.ctx.findingsBadge?.isPopupEnabled();
@@ -158,6 +181,13 @@ export class DataLoaderManager implements AppModule {
       tasks.push({ name: 'fred', task: runGuarded('fred', () => this.loadFredData()) });
       tasks.push({ name: 'oil', task: runGuarded('oil', () => this.loadOilAnalytics()) });
       tasks.push({ name: 'spending', task: runGuarded('spending', () => this.loadGovernmentSpending()) });
+      tasks.push({ name: 'bis', task: runGuarded('bis', () => this.loadBisData()) });
+
+      // Trade policy data (FULL and FINANCE only)
+      if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
+        tasks.push({ name: 'tradePolicy', task: runGuarded('tradePolicy', () => this.loadTradePolicy()) });
+        tasks.push({ name: 'supplyChain', task: runGuarded('supplyChain', () => this.loadSupplyChain()) });
+      }
     }
 
     // Progress charts data (happy variant only)
@@ -217,6 +247,7 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.cables) tasks.push({ name: 'cableHealth', task: runGuarded('cableHealth', () => this.loadCableHealth()) });
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.flights) tasks.push({ name: 'flights', task: runGuarded('flights', () => this.loadFlightDelays()) });
     if (SITE_VARIANT !== 'happy' && CYBER_LAYER_ENABLED && this.ctx.mapLayers.cyberThreats) tasks.push({ name: 'cyberThreats', task: runGuarded('cyberThreats', () => this.loadCyberThreats()) });
+    if (SITE_VARIANT !== 'happy') tasks.push({ name: 'iranAttacks', task: runGuarded('iranAttacks', () => this.loadIranEvents()) });
     if (SITE_VARIANT !== 'happy' && (this.ctx.mapLayers.techEvents || SITE_VARIANT === 'tech')) tasks.push({ name: 'techEvents', task: runGuarded('techEvents', () => this.loadTechEvents()) });
 
     if (SITE_VARIANT === 'tech') {
@@ -281,9 +312,13 @@ export class DataLoaderManager implements AppModule {
         case 'kindness':
           this.loadKindnessData();
           break;
+        case 'iranAttacks':
+          await this.loadIranEvents();
+          break;
         case 'ucdpEvents':
         case 'displacement':
         case 'climate':
+        case 'gpsJamming':
           await this.loadIntelligenceSignals();
           break;
       }
@@ -294,7 +329,7 @@ export class DataLoaderManager implements AppModule {
   }
 
   private findFlashLocation(title: string): { lat: number; lon: number } | null {
-    const titleLower = title.toLowerCase();
+    const tokens = tokenizeForMatch(title);
     let bestMatch: { lat: number; lon: number; matches: number } | null = null;
 
     const countKeywordMatches = (keywords: string[] | undefined): number => {
@@ -302,7 +337,7 @@ export class DataLoaderManager implements AppModule {
       let matches = 0;
       for (const keyword of keywords) {
         const cleaned = keyword.trim().toLowerCase();
-        if (cleaned.length >= 3 && titleLower.includes(cleaned)) {
+        if (cleaned.length >= 3 && matchKeyword(tokens, cleaned)) {
           matches++;
         }
       }
@@ -458,6 +493,7 @@ export class DataLoaderManager implements AppModule {
         onBatch: (partialItems) => {
           scheduleRender(partialItems);
           this.flashMapForNews(partialItems);
+          checkBatchForBreakingAlerts(partialItems);
         },
       });
 
@@ -553,6 +589,7 @@ export class DataLoaderManager implements AppModule {
         const intelResult = await Promise.allSettled([fetchCategoryFeeds(enabledIntelSources)]);
         if (intelResult[0]?.status === 'fulfilled') {
           const intel = intelResult[0].value;
+          checkBatchForBreakingAlerts(intel);
           this.renderNewsForCategory('intel', intel);
           if (intelPanel) {
             try {
@@ -632,9 +669,13 @@ export class DataLoaderManager implements AppModule {
 
       const finnhubConfigMsg = 'FINNHUB_API_KEY not configured — add in Settings';
       this.ctx.latestMarkets = stocksResult.data;
-      (this.ctx.panels['markets'] as MarketPanel).renderMarkets(stocksResult.data);
+      (this.ctx.panels['markets'] as MarketPanel).renderMarkets(stocksResult.data, stocksResult.rateLimited);
 
-      if (stocksResult.skipped) {
+      if (stocksResult.rateLimited && stocksResult.data.length === 0) {
+        const rlMsg = 'Market data temporarily unavailable (rate limited) — retrying shortly';
+        this.ctx.panels['heatmap']?.showError(rlMsg);
+        this.ctx.panels['commodities']?.showError(rlMsg);
+      } else if (stocksResult.skipped) {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
         if (stocksResult.data.length === 0) {
           this.ctx.panels['markets']?.showConfigError(finnhubConfigMsg);
@@ -643,25 +684,31 @@ export class DataLoaderManager implements AppModule {
       } else {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'ok' });
 
-        const sectorsResult = await fetchMultipleStocks(
-          SECTORS.map((s) => ({ ...s, display: s.name })),
-          {
-            onBatch: (partialSectors) => {
-              (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(
-                partialSectors.map((s) => ({ name: s.name, change: s.change }))
-              );
-            },
-          }
-        );
-        (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(
-          sectorsResult.data.map((s) => ({ name: s.name, change: s.change }))
-        );
+        const hydratedSectors = getHydratedData('sectors') as GetSectorSummaryResponse | undefined;
+        if (hydratedSectors?.sectors?.length) {
+          const mapped = hydratedSectors.sectors.map((s) => ({ name: s.name, change: s.change }));
+          (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(mapped);
+        } else {
+          const sectorsResult = await fetchMultipleStocks(
+            SECTORS.map((s) => ({ ...s, display: s.name })),
+            {
+              onBatch: (partialSectors) => {
+                (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(
+                  partialSectors.map((s) => ({ name: s.name, change: s.change }))
+                );
+              },
+            }
+          );
+          (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(
+            sectorsResult.data.map((s) => ({ name: s.name, change: s.change }))
+          );
+        }
       }
 
       const commoditiesPanel = this.ctx.panels['commodities'] as CommoditiesPanel;
       const mapCommodity = (c: MarketData) => ({ display: c.display, price: c.price, change: c.change, sparkline: c.sparkline });
 
-      let commoditiesLoaded = false;
+      let commoditiesLoaded = stocksResult.rateLimited && stocksResult.data.length === 0;
       for (let attempt = 0; attempt < 3 && !commoditiesLoaded; attempt++) {
         if (attempt > 0) {
           commoditiesPanel.showRetrying();
@@ -1030,6 +1077,57 @@ export class DataLoaderManager implements AppModule {
       }
     })());
 
+    // Security advisories
+    tasks.push(this.loadSecurityAdvisories());
+
+    // Telegram Intel
+    tasks.push(this.loadTelegramIntel());
+
+    // OREF sirens
+    tasks.push((async () => {
+      try {
+        const data = await fetchOrefAlerts();
+        (this.ctx.panels['oref-sirens'] as OrefSirensPanel)?.setData(data);
+        const alertCount = data.alerts?.length ?? 0;
+        const historyCount24h = data.historyCount24h ?? 0;
+        ingestOrefForCII(alertCount, historyCount24h);
+        this.ctx.intelligenceCache.orefAlerts = { alertCount, historyCount24h };
+        onOrefAlertsUpdate((update) => {
+          (this.ctx.panels['oref-sirens'] as OrefSirensPanel)?.setData(update);
+          const updAlerts = update.alerts?.length ?? 0;
+          const updHistory = update.historyCount24h ?? 0;
+          ingestOrefForCII(updAlerts, updHistory);
+          this.ctx.intelligenceCache.orefAlerts = { alertCount: updAlerts, historyCount24h: updHistory };
+        });
+        startOrefPolling();
+      } catch (error) {
+        console.error('[Intelligence] OREF alerts fetch failed:', error);
+      }
+    })());
+
+    // GPS/GNSS jamming
+    tasks.push((async () => {
+      try {
+        const data = await fetchGpsInterference();
+        if (!data) {
+          ingestGpsJammingForCII([]);
+          this.ctx.map?.setLayerReady('gpsJamming', false);
+          return;
+        }
+        ingestGpsJammingForCII(data.hexes);
+        if (this.ctx.mapLayers.gpsJamming) {
+          this.ctx.map?.setGpsJamming(data.hexes);
+          this.ctx.map?.setLayerReady('gpsJamming', data.hexes.length > 0);
+        }
+        this.ctx.statusPanel?.updateFeed('GPS Jam', { status: 'ok', itemCount: data.hexes.length });
+        dataFreshness.recordUpdate('gpsjam', data.hexes.length);
+      } catch (error) {
+        this.ctx.map?.setLayerReady('gpsJamming', false);
+        this.ctx.statusPanel?.updateFeed('GPS Jam', { status: 'error' });
+        dataFreshness.recordError('gpsjam', String(error));
+      }
+    })());
+
     await Promise.allSettled(tasks);
 
     try {
@@ -1109,6 +1207,20 @@ export class DataLoaderManager implements AppModule {
       this.ctx.statusPanel?.updateFeed('Cyber Threats', { status: 'error', errorMessage: String(error) });
       this.ctx.statusPanel?.updateApi('Cyber Threats API', { status: 'error' });
       dataFreshness.recordError('cyber_threats', String(error));
+    }
+  }
+
+  async loadIranEvents(): Promise<void> {
+    try {
+      const events = await fetchIranEvents();
+      this.ctx.intelligenceCache.iranEvents = events;
+      this.ctx.map?.setIranEvents(events);
+      this.ctx.map?.setLayerReady('iranAttacks', events.length > 0);
+      signalAggregator.ingestConflictEvents(events);
+      ingestStrikesForCII(events);
+      (this.ctx.panels['cii'] as CIIPanel)?.refresh();
+    } catch {
+      this.ctx.map?.setLayerReady('iranAttacks', false);
     }
   }
 
@@ -1263,6 +1375,9 @@ export class DataLoaderManager implements AppModule {
       const delays = await fetchFlightDelays();
       this.ctx.map?.setFlightDelays(delays);
       this.ctx.map?.setLayerReady('flights', delays.length > 0);
+      this.ctx.intelligenceCache.flightDelays = delays;
+      const severe = delays.filter(d => d.severity === 'major' || d.severity === 'severe' || d.delayType === 'closure');
+      if (severe.length > 0) ingestAviationForCII(severe);
       this.ctx.statusPanel?.updateFeed('Flights', {
         status: 'ok',
         itemCount: delays.length,
@@ -1481,6 +1596,93 @@ export class DataLoaderManager implements AppModule {
     }
   }
 
+  async loadBisData(): Promise<void> {
+    const economicPanel = this.ctx.panels['economic'] as EconomicPanel;
+    try {
+      const data = await fetchBisData();
+      economicPanel?.updateBis(data);
+      const hasData = data.policyRates.length > 0;
+      this.ctx.statusPanel?.updateApi('BIS', { status: hasData ? 'ok' : 'error' });
+      if (hasData) {
+        dataFreshness.recordUpdate('bis', data.policyRates.length);
+      }
+    } catch (e) {
+      console.error('[App] BIS data failed:', e);
+      this.ctx.statusPanel?.updateApi('BIS', { status: 'error' });
+      dataFreshness.recordError('bis', String(e));
+    }
+  }
+
+  async loadTradePolicy(): Promise<void> {
+    const tradePanel = this.ctx.panels['trade-policy'] as TradePolicyPanel | undefined;
+    if (!tradePanel) return;
+
+    try {
+      const [restrictions, tariffs, flows, barriers] = await Promise.all([
+        fetchTradeRestrictions([], 50),
+        fetchTariffTrends('840', '156', '', 10),
+        fetchTradeFlows('840', '156', 10),
+        fetchTradeBarriers([], '', 50),
+      ]);
+
+      tradePanel.updateRestrictions(restrictions);
+      tradePanel.updateTariffs(tariffs);
+      tradePanel.updateFlows(flows);
+      tradePanel.updateBarriers(barriers);
+
+      const totalItems = restrictions.restrictions.length + tariffs.datapoints.length + flows.flows.length + barriers.barriers.length;
+      const anyUnavailable = restrictions.upstreamUnavailable || tariffs.upstreamUnavailable || flows.upstreamUnavailable || barriers.upstreamUnavailable;
+
+      this.ctx.statusPanel?.updateApi('WTO', { status: anyUnavailable ? 'warning' : totalItems > 0 ? 'ok' : 'error' });
+
+      if (totalItems > 0) {
+        dataFreshness.recordUpdate('wto_trade', totalItems);
+      } else if (anyUnavailable) {
+        dataFreshness.recordError('wto_trade', 'WTO upstream temporarily unavailable');
+      }
+    } catch (e) {
+      console.error('[App] Trade policy failed:', e);
+      this.ctx.statusPanel?.updateApi('WTO', { status: 'error' });
+      dataFreshness.recordError('wto_trade', String(e));
+    }
+  }
+
+  async loadSupplyChain(): Promise<void> {
+    const scPanel = this.ctx.panels['supply-chain'] as SupplyChainPanel | undefined;
+    if (!scPanel) return;
+
+    try {
+      const [shipping, chokepoints, minerals] = await Promise.allSettled([
+        fetchShippingRates(),
+        fetchChokepointStatus(),
+        fetchCriticalMinerals(),
+      ]);
+
+      const shippingData = shipping.status === 'fulfilled' ? shipping.value : null;
+      const chokepointData = chokepoints.status === 'fulfilled' ? chokepoints.value : null;
+      const mineralsData = minerals.status === 'fulfilled' ? minerals.value : null;
+
+      if (shippingData) scPanel.updateShippingRates(shippingData);
+      if (chokepointData) scPanel.updateChokepointStatus(chokepointData);
+      if (mineralsData) scPanel.updateCriticalMinerals(mineralsData);
+
+      const totalItems = (shippingData?.indices.length || 0) + (chokepointData?.chokepoints.length || 0) + (mineralsData?.minerals.length || 0);
+      const anyUnavailable = shippingData?.upstreamUnavailable || chokepointData?.upstreamUnavailable || mineralsData?.upstreamUnavailable;
+
+      this.ctx.statusPanel?.updateApi('SupplyChain', { status: anyUnavailable ? 'warning' : totalItems > 0 ? 'ok' : 'error' });
+
+      if (totalItems > 0) {
+        dataFreshness.recordUpdate('supply_chain', totalItems);
+      } else if (anyUnavailable) {
+        dataFreshness.recordError('supply_chain', 'Supply chain upstream temporarily unavailable');
+      }
+    } catch (e) {
+      console.error('[App] Supply chain failed:', e);
+      this.ctx.statusPanel?.updateApi('SupplyChain', { status: 'error' });
+      dataFreshness.recordError('supply_chain', String(e));
+    }
+  }
+
   updateMonitorResults(): void {
     const monitorPanel = this.ctx.panels['monitors'] as MonitorPanel;
     monitorPanel.renderResults(this.ctx.allNews);
@@ -1627,7 +1829,7 @@ export class DataLoaderManager implements AppModule {
         pubDate: new Date(item.pubDate),
       }));
 
-      const scienceSources = ['GNN Science', 'ScienceDaily', 'Nature News', 'Live Science', 'New Scientist'];
+      const scienceSources = ['GNN Science', 'ScienceDaily', 'Nature News', 'Live Science', 'New Scientist', 'Singularity Hub', 'Human Progress', 'Greater Good (Berkeley)'];
       this.ctx.breakthroughsPanel?.setItems(
         items.filter(item => scienceSources.includes(item.source) || item.happyCategory === 'science-health')
       );
@@ -1676,7 +1878,7 @@ export class DataLoaderManager implements AppModule {
       this.ctx.positivePanel.renderPositiveNews(merged);
     }
 
-    const scienceSources = ['GNN Science', 'ScienceDaily', 'Nature News', 'Live Science', 'New Scientist'];
+    const scienceSources = ['GNN Science', 'ScienceDaily', 'Nature News', 'Live Science', 'New Scientist', 'Singularity Hub', 'Human Progress', 'Greater Good (Berkeley)'];
     const scienceItems = this.ctx.happyAllItems.filter(item =>
       scienceSources.includes(item.source) || item.happyCategory === 'science-health'
     );
@@ -1755,6 +1957,28 @@ export class DataLoaderManager implements AppModule {
       this.ctx.renewablePanel?.setCapacityData(capacity);
     } catch {
       // EIA failure does not break the existing World Bank gauge
+    }
+  }
+
+  async loadSecurityAdvisories(): Promise<void> {
+    try {
+      const result = await fetchSecurityAdvisories();
+      if (result.ok) {
+        (this.ctx.panels['security-advisories'] as SecurityAdvisoriesPanel)?.setData(result.advisories);
+        this.ctx.intelligenceCache.advisories = result.advisories;
+        ingestAdvisoriesForCII(result.advisories);
+      }
+    } catch (error) {
+      console.error('[App] Security advisories fetch failed:', error);
+    }
+  }
+
+  async loadTelegramIntel(): Promise<void> {
+    try {
+      const result = await fetchTelegramFeed();
+      (this.ctx.panels['telegram-intel'] as TelegramIntelPanel)?.setData(result);
+    } catch (error) {
+      console.error('[App] Telegram intel fetch failed:', error);
     }
   }
 }

@@ -1,11 +1,42 @@
+const WS_API_URL = import.meta.env.VITE_WS_API_URL || '';
+
 const DEFAULT_REMOTE_HOSTS: Record<string, string> = {
-  tech: 'https://tech.worldmonitor.app',
-  full: 'https://worldmonitor.app',
-  world: 'https://worldmonitor.app',
+  tech: WS_API_URL,
+  full: WS_API_URL,
+  world: WS_API_URL,
+  happy: WS_API_URL,
 };
 
-const DEFAULT_LOCAL_API_BASE = 'http://127.0.0.1:46123';
+const DEFAULT_LOCAL_API_PORT = 46123;
 const FORCE_DESKTOP_RUNTIME = import.meta.env.VITE_DESKTOP_RUNTIME === '1';
+
+let _resolvedPort: number | null = null;
+let _portPromise: Promise<number> | null = null;
+
+export async function resolveLocalApiPort(): Promise<number> {
+  if (_resolvedPort !== null) return _resolvedPort;
+  if (_portPromise) return _portPromise;
+  _portPromise = (async () => {
+    try {
+      const { tryInvokeTauri } = await import('@/services/tauri-bridge');
+      const port = await tryInvokeTauri<number>('get_local_api_port');
+      if (port && port > 0) {
+        _resolvedPort = port;
+        return port;
+      }
+    } catch {
+      // IPC failed — allow retry on next call
+    } finally {
+      _portPromise = null;
+    }
+    return DEFAULT_LOCAL_API_PORT;
+  })();
+  return _portPromise;
+}
+
+export function getLocalApiPort(): number {
+  return _resolvedPort ?? DEFAULT_LOCAL_API_PORT;
+}
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/$/, '');
@@ -72,7 +103,7 @@ export function getApiBaseUrl(): string {
     return normalizeBaseUrl(configuredBaseUrl);
   }
 
-  return DEFAULT_LOCAL_API_BASE;
+  return `http://127.0.0.1:${getLocalApiPort()}`;
 }
 
 export function getRemoteApiBaseUrl(): string {
@@ -82,7 +113,7 @@ export function getRemoteApiBaseUrl(): string {
   }
 
   const variant = import.meta.env.VITE_VARIANT || 'full';
-  return DEFAULT_REMOTE_HOSTS[variant] ?? DEFAULT_REMOTE_HOSTS.full ?? 'https://worldmonitor.app';
+  return DEFAULT_REMOTE_HOSTS[variant] ?? DEFAULT_REMOTE_HOSTS.full ?? '';
 }
 
 export function toRuntimeUrl(path: string): string {
@@ -98,12 +129,23 @@ export function toRuntimeUrl(path: string): string {
   return `${baseUrl}${path}`;
 }
 
+function extractHostnames(...urls: (string | undefined)[]): string[] {
+  const hosts: string[] = [];
+  for (const u of urls) {
+    if (!u) continue;
+    try { hosts.push(new URL(u).hostname); } catch {}
+  }
+  return hosts;
+}
+
 const APP_HOSTS = new Set([
   'worldmonitor.app',
   'www.worldmonitor.app',
   'tech.worldmonitor.app',
+  'api.worldmonitor.app',
   'localhost',
   '127.0.0.1',
+  ...extractHostnames(WS_API_URL, import.meta.env.VITE_WS_RELAY_URL),
 ]);
 
 function isAppOriginUrl(urlStr: string): boolean {
@@ -213,7 +255,6 @@ export function installRuntimeFetchPatch(): void {
   }
 
   const nativeFetch = window.fetch.bind(window);
-  const localBase = getApiBaseUrl();
   let localApiToken: string | null = null;
   let tokenFetchedAt = 0;
 
@@ -227,6 +268,11 @@ export function installRuntimeFetchPatch(): void {
         console.log(`[fetch] passthrough → ${raw.slice(0, 120)}`);
       }
       return nativeFetch(input, init);
+    }
+
+    // Resolve dynamic sidecar port on first API call
+    if (_resolvedPort === null) {
+      try { await resolveLocalApiPort(); } catch { /* use default */ }
     }
 
     const tokenExpired = localApiToken && (Date.now() - tokenFetchedAt > TOKEN_TTL_MS);
@@ -247,7 +293,7 @@ export function installRuntimeFetchPatch(): void {
     }
     const localInit = { ...init, headers };
 
-    const localUrl = `${localBase}${target}`;
+    const localUrl = `${getApiBaseUrl()}${target}`;
     if (debug) console.log(`[fetch] intercept → ${target}`);
     let allowCloudFallback = !isLocalOnlyApiTarget(target);
 
@@ -283,8 +329,28 @@ export function installRuntimeFetchPatch(): void {
 
     try {
       const t0 = performance.now();
-      const response = await fetchLocalWithStartupRetry(nativeFetch, localUrl, localInit);
+      let response = await fetchLocalWithStartupRetry(nativeFetch, localUrl, localInit);
       if (debug) console.log(`[fetch] ${target} → ${response.status} (${Math.round(performance.now() - t0)}ms)`);
+
+      // Token may be stale after a sidecar restart — refresh and retry once.
+      if (response.status === 401 && localApiToken) {
+        if (debug) console.log(`[fetch] 401 from sidecar, refreshing token and retrying`);
+        try {
+          const { tryInvokeTauri } = await import('@/services/tauri-bridge');
+          localApiToken = await tryInvokeTauri<string>('get_local_api_token');
+          tokenFetchedAt = Date.now();
+        } catch {
+          localApiToken = null;
+          tokenFetchedAt = 0;
+        }
+        if (localApiToken) {
+          const retryHeaders = new Headers(init?.headers);
+          retryHeaders.set('Authorization', `Bearer ${localApiToken}`);
+          response = await fetchLocalWithStartupRetry(nativeFetch, localUrl, { ...init, headers: retryHeaders });
+          if (debug) console.log(`[fetch] retry ${target} → ${response.status}`);
+        }
+      }
+
       if (!response.ok) {
         if (!allowCloudFallback) {
           if (debug) console.log(`[fetch] local-only endpoint ${target} returned ${response.status}; skipping cloud fallback`);
@@ -304,4 +370,47 @@ export function installRuntimeFetchPatch(): void {
   };
 
   (window as unknown as Record<string, unknown>).__wmFetchPatched = true;
+}
+
+const WEB_RPC_PATTERN = /^\/api\/[^/]+\/v1\//;
+const ALLOWED_REDIRECT_HOSTS = /^https:\/\/([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*worldmonitor\.app(:\d+)?$/;
+
+function isAllowedRedirectTarget(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return ALLOWED_REDIRECT_HOSTS.test(parsed.origin) || parsed.hostname === 'localhost';
+  } catch {
+    return false;
+  }
+}
+
+export function installWebApiRedirect(): void {
+  if (isDesktopRuntime() || typeof window === 'undefined') return;
+  if (!WS_API_URL) return;
+  if (!isAllowedRedirectTarget(WS_API_URL)) {
+    console.warn('[runtime] VITE_WS_API_URL blocked — not in hostname allowlist:', WS_API_URL);
+    return;
+  }
+  if ((window as unknown as Record<string, unknown>).__wmWebRedirectPatched) return;
+
+  const nativeFetch = window.fetch.bind(window);
+  const API_BASE = WS_API_URL;
+
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    if (typeof input === 'string' && WEB_RPC_PATTERN.test(input)) {
+      return nativeFetch(`${API_BASE}${input}`, init);
+    }
+    if (input instanceof URL && input.origin === window.location.origin && WEB_RPC_PATTERN.test(input.pathname)) {
+      return nativeFetch(new URL(`${API_BASE}${input.pathname}${input.search}`), init);
+    }
+    if (input instanceof Request) {
+      const u = new URL(input.url);
+      if (u.origin === window.location.origin && WEB_RPC_PATTERN.test(u.pathname)) {
+        return nativeFetch(new Request(`${API_BASE}${u.pathname}${u.search}`, input), init);
+      }
+    }
+    return nativeFetch(input, init);
+  };
+
+  (window as unknown as Record<string, unknown>).__wmWebRedirectPatched = true;
 }

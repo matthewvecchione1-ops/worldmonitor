@@ -31,6 +31,11 @@ import {
   ClimateAnomalyPanel,
   PopulationExposurePanel,
   InvestmentsPanel,
+  TradePolicyPanel,
+  SupplyChainPanel,
+  SecurityAdvisoriesPanel,
+  OrefSirensPanel,
+  TelegramIntelPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { PositiveNewsFeedPanel } from '@/components/PositiveNewsFeedPanel';
@@ -61,6 +66,7 @@ export interface PanelLayoutCallbacks {
   openCountryStory: (code: string, name: string) => void;
   loadAllData: () => Promise<void>;
   updateMonitorResults: () => void;
+  loadSecurityAdvisories?: () => Promise<void>;
 }
 
 export class PanelLayoutManager implements AppModule {
@@ -172,6 +178,7 @@ export class PanelLayoutManager implements AppModule {
           </div>
         </div>
         <div class="header-right">
+          <!-- TODO: Add "Download App" link here for non-desktop users (this.ctx.isDesktopApp === false) -->
           <button class="search-btn" id="searchBtn"><kbd>⌘K</kbd> ${t('header.search')}</button>
           ${this.ctx.isDesktopApp ? '' : `<button class="copy-link-btn" id="copyLinkBtn">${t('header.copyLink')}</button>`}
           <button class="theme-toggle-btn" id="headerThemeToggle" title="${t('header.toggleTheme')}">
@@ -447,6 +454,14 @@ export class PanelLayoutManager implements AppModule {
     const economicPanel = new EconomicPanel();
     this.ctx.panels['economic'] = economicPanel;
 
+    if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
+      const tradePolicyPanel = new TradePolicyPanel();
+      this.ctx.panels['trade-policy'] = tradePolicyPanel;
+
+      const supplyChainPanel = new SupplyChainPanel();
+      this.ctx.panels['supply-chain'] = supplyChainPanel;
+    }
+
     const africaPanel = new NewsPanel('africa', t('panels.africa'));
     this.attachRelatedAssetHandlers(africaPanel);
     this.ctx.newsPanels['africa'] = africaPanel;
@@ -529,6 +544,18 @@ export class PanelLayoutManager implements AppModule {
 
       const populationExposurePanel = new PopulationExposurePanel();
       this.ctx.panels['population-exposure'] = populationExposurePanel;
+
+      const securityAdvisoriesPanel = new SecurityAdvisoriesPanel();
+      securityAdvisoriesPanel.setRefreshHandler(() => {
+        void this.callbacks.loadSecurityAdvisories?.();
+      });
+      this.ctx.panels['security-advisories'] = securityAdvisoriesPanel;
+
+      const orefSirensPanel = new OrefSirensPanel();
+      this.ctx.panels['oref-sirens'] = orefSirensPanel;
+
+      const telegramIntelPanel = new TelegramIntelPanel();
+      this.ctx.panels['telegram-intel'] = telegramIntelPanel;
     }
 
     if (SITE_VARIANT === 'finance') {
@@ -808,7 +835,12 @@ export class PanelLayoutManager implements AppModule {
       if (e.button !== 0) return;
       const target = e.target as HTMLElement;
       if (el.dataset.resizing === 'true') return;
-      if (target.classList?.contains('panel-resize-handle') || target.closest?.('.panel-resize-handle')) return;
+      if (
+        target.classList?.contains('panel-resize-handle') ||
+        target.closest?.('.panel-resize-handle') ||
+        target.classList?.contains('panel-col-resize-handle') ||
+        target.closest?.('.panel-col-resize-handle')
+      ) return;
       if (target.closest('button, a, input, select, textarea, .panel-content')) return;
 
       isDragging = true;

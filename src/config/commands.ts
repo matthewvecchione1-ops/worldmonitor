@@ -1,16 +1,17 @@
 import type { MapLayers } from '@/types';
+import { CURATED_COUNTRIES } from '@/config/countries';
 
 export interface Command {
   id: string;
   keywords: string[];
   label: string;
   icon: string;
-  category: 'navigate' | 'layers' | 'panels' | 'view' | 'actions';
+  category: 'navigate' | 'layers' | 'panels' | 'view' | 'actions' | 'country';
 }
 
 export const LAYER_PRESETS: Record<string, (keyof MapLayers)[]> = {
   military: ['bases', 'nuclear', 'flights', 'military', 'waterways'],
-  finance: ['stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'economic'],
+  finance: ['stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'economic', 'tradeRoutes'],
   infra: ['cables', 'pipelines', 'datacenters', 'spaceports', 'minerals'],
   intel: ['conflicts', 'hotspots', 'protests', 'ucdpEvents', 'displacement'],
   minimal: ['conflicts', 'hotspots'],
@@ -58,6 +59,7 @@ export const COMMANDS: Command[] = [
   { id: 'layer:displacement', keywords: ['displacement', 'refugees', 'idp'], label: 'Toggle displacement flows', icon: '\u{1F3C3}', category: 'layers' },
   { id: 'layer:climate', keywords: ['climate', 'anomalies'], label: 'Toggle climate anomalies', icon: '\u{1F321}\uFE0F', category: 'layers' },
   { id: 'layer:outages', keywords: ['outages', 'internet outages'], label: 'Toggle internet outages', icon: '\u{1F4E1}', category: 'layers' },
+  { id: 'layer:tradeRoutes', keywords: ['trade routes', 'shipping lanes', 'trade'], label: 'Toggle trade routes', icon: '\u{1F6A2}', category: 'layers' },
 
   // Panel navigation (matching actual DEFAULT_PANELS keys)
   { id: 'panel:live-news', keywords: ['news', 'live news', 'headlines'], label: 'Jump to Live News', icon: '\u{1F4F0}', category: 'panels' },
@@ -80,6 +82,8 @@ export const COMMANDS: Command[] = [
   { id: 'panel:commodities', keywords: ['commodities', 'gold', 'silver'], label: 'Jump to Commodities', icon: '\u{1F4E6}', category: 'panels' },
   { id: 'panel:markets', keywords: ['markets', 'stocks', 'indices'], label: 'Jump to Markets', icon: '\u{1F4C8}', category: 'panels' },
   { id: 'panel:economic', keywords: ['economic', 'economy', 'fred'], label: 'Jump to Economic Indicators', icon: '\u{1F4CA}', category: 'panels' },
+  { id: 'panel:trade-policy', keywords: ['trade', 'tariffs', 'wto', 'trade policy', 'sanctions', 'restrictions'], label: 'Jump to Trade Policy', icon: '\u{1F4CA}', category: 'panels' },
+  { id: 'panel:supply-chain', keywords: ['supply chain', 'shipping', 'chokepoint', 'minerals', 'freight', 'logistics'], label: 'Jump to Supply Chain', icon: '\u{1F6A2}', category: 'panels' },
   { id: 'panel:finance', keywords: ['financial', 'finance news'], label: 'Jump to Financial', icon: '\u{1F4B5}', category: 'panels' },
   { id: 'panel:tech', keywords: ['technology', 'tech news'], label: 'Jump to Technology', icon: '\u{1F4BB}', category: 'panels' },
   { id: 'panel:crypto', keywords: ['crypto', 'bitcoin', 'ethereum'], label: 'Jump to Crypto', icon: '\u20BF', category: 'panels' },
@@ -104,3 +108,43 @@ export const COMMANDS: Command[] = [
   { id: 'time:48h', keywords: ['48h', '2 days', 'last 2 days'], label: 'Show events from last 48 hours', icon: '\u{1F4C5}', category: 'actions' },
   { id: 'time:7d', keywords: ['7d', 'week', 'last week', '7 days'], label: 'Show events from last 7 days', icon: '\u{1F5D3}\uFE0F', category: 'actions' },
 ];
+
+function toFlagEmoji(code: string): string {
+  return code.toUpperCase().split('').map(c => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65)).join('');
+}
+
+// All ISO 3166-1 alpha-2 codes — Intl.DisplayNames resolves human-readable names at runtime
+const ISO_CODES = [
+  'AD','AE','AF','AG','AL','AM','AO','AR','AT','AU','AZ','BA','BB','BD','BE','BF',
+  'BG','BH','BI','BJ','BN','BO','BR','BS','BT','BW','BY','BZ','CA','CD','CF','CG',
+  'CH','CI','CL','CM','CN','CO','CR','CU','CV','CY','CZ','DE','DJ','DK','DM','DO',
+  'DZ','EC','EE','EG','ER','ES','ET','FI','FJ','FM','FR','GA','GB','GD','GE','GH',
+  'GM','GN','GQ','GR','GT','GW','GY','HN','HR','HT','HU','ID','IE','IL','IN','IQ',
+  'IR','IS','IT','JM','JO','JP','KE','KG','KH','KI','KM','KN','KP','KR','KW','KZ',
+  'LA','LB','LC','LI','LK','LR','LS','LT','LU','LV','LY','MA','MC','MD','ME','MG',
+  'MH','MK','ML','MM','MN','MR','MT','MU','MV','MW','MX','MY','MZ','NA','NE','NG',
+  'NI','NL','NO','NP','NR','NZ','OM','PA','PE','PG','PH','PK','PL','PS','PT','PW',
+  'PY','QA','RO','RS','RU','RW','SA','SB','SC','SD','SE','SG','SI','SK','SL','SM',
+  'SN','SO','SR','SS','ST','SV','SY','SZ','TD','TG','TH','TJ','TL','TM','TN','TO',
+  'TR','TT','TV','TW','TZ','UA','UG','US','UY','UZ','VA','VC','VE','VN','VU','WS',
+  'YE','ZA','ZM','ZW',
+];
+
+const displayNames = new Intl.DisplayNames(['en'], { type: 'region' });
+
+const COUNTRY_COMMANDS: Command[] = ISO_CODES.map(code => {
+  const curated = CURATED_COUNTRIES[code];
+  const name = curated?.name || displayNames.of(code) || code;
+  const keywords = curated
+    ? [name.toLowerCase(), ...curated.searchAliases]
+    : [name.toLowerCase()];
+  return {
+    id: `country:${code}`,
+    keywords,
+    label: `Open ${name} brief`,
+    icon: toFlagEmoji(code),
+    category: 'country' as const,
+  };
+});
+
+COMMANDS.push(...COUNTRY_COMMANDS);

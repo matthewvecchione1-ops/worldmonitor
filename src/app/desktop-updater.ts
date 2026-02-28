@@ -133,6 +133,12 @@ export class DesktopUpdater implements AppModule {
       return null;
     }
 
+    if (normalizedOs === 'linux') {
+      if (normalizedArch === 'x86_64') return 'linux-appimage';
+      if (normalizedArch === 'aarch64') return 'linux-appimage-arm64';
+      return null;
+    }
+
     return null;
   }
 

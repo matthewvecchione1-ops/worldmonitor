@@ -860,6 +860,7 @@ canvas,
   overflow: hidden;
   height: 100%;
   min-height: 200px;
+  min-width: 0;
   cursor: grab;
   transition: transform 0.15s, box-shadow 0.15s;
   position: relative;
@@ -888,6 +889,10 @@ canvas,
   grid-row: span 4 !important;
   min-height: 800px !important;
 }
+
+.panel.col-span-1 { grid-column: span 1 !important; }
+.panel.col-span-2 { grid-column: span 2 !important; }
+.panel.col-span-3 { grid-column: span 3 !important; }
 
 .panel-resize-handle {
   position: absolute;
@@ -925,9 +930,62 @@ canvas,
   color: var(--accent);
 }
 
+/* Right-edge handle - mirrors the bottom handle exactly */
+.panel-col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  cursor: ew-resize;
+  background: linear-gradient(to left, rgba(68, 136, 255, 0.15), transparent);
+  z-index: 100;
+  transition: background 0.2s;
+  touch-action: none;
+  pointer-events: auto !important;
+  user-select: none;
+}
+
+.panel-col-resize-handle:hover,
+.panel-col-resize-handle.active {
+  background: linear-gradient(to left, rgba(68, 136, 255, 0.5), transparent);
+}
+
+.panel-col-resize-handle::after {
+  content: '⋮';
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  transition: color 0.2s;
+}
+
+.panel-col-resize-handle:hover::after {
+  color: var(--accent);
+}
+
+body.panel-resize-active iframe {
+  pointer-events: none !important;
+}
+
 .panel.resizing {
   cursor: ns-resize;
   user-select: none;
+}
+
+/* Horizontal drag cursor */
+.panel.col-resizing {
+  cursor: ew-resize;
+  user-select: none;
+}
+
+@media (max-width: 768px) {
+  .panel-col-resize-handle {
+    display: none;
+  }
 }
 
 .panel:active {
@@ -1211,6 +1269,7 @@ canvas,
   flex: 1;
   overflow-y: auto;
   padding: 8px;
+  min-width: 0;
 }
 
 .panel-content::-webkit-scrollbar {
@@ -2005,6 +2064,29 @@ canvas,
   pointer-events: none;
 }
 
+.webcam-expand-btn {
+  pointer-events: auto;
+  margin-left: auto;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  color: #fff;
+  padding: 2px 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  line-height: 1;
+}
+
+.webcam-cell:hover .webcam-expand-btn {
+  opacity: 0.7;
+}
+
+.webcam-expand-btn:hover {
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.15);
+}
+
 .webcam-city {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -2028,17 +2110,13 @@ canvas,
   height: 100%;
   border: 0;
   display: block;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .webcam-single {
   flex: 1;
   background: #000;
   aspect-ratio: 16 / 9;
-}
-
-.webcam-single .webcam-iframe {
-  pointer-events: auto;
 }
 
 .webcam-switcher {
@@ -4269,6 +4347,25 @@ body.playback-mode .status-dot {
   color: var(--text-dim);
 }
 
+/* Iran event markers */
+.iran-event-marker {
+  position: absolute;
+  transform: translate(-50%, -50%) scale(var(--marker-scale, 1));
+  transform-origin: center;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 80, 80, 0.9);
+  box-shadow: 0 0 8px rgba(255, 50, 50, 0.6);
+  animation: quake-pulse 2s ease-in-out infinite;
+  cursor: pointer;
+  z-index: 54;
+  transition: opacity 0.2s ease;
+}
+
+.iran-event-marker:hover {
+  box-shadow: 0 0 14px rgba(255, 50, 50, 0.9);
+  transform: translate(-50%, -50%) scale(calc(var(--marker-scale, 1) * 1.3));
+}
+
 /* Earthquake markers */
 .earthquake-marker {
   position: absolute;
@@ -4834,10 +4931,17 @@ a.prediction-link:hover {
   text-decoration: underline;
 }
 
-.prediction-volume {
+.prediction-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 2px 0;
+}
+
+.prediction-volume,
+.prediction-expiry {
   font-size: 9px;
   color: var(--muted);
-  margin-bottom: 6px;
 }
 
 .prediction-bar {
@@ -5408,6 +5512,22 @@ a.prediction-link:hover {
   inset: 0;
   background: var(--bg);
   z-index: -1;
+}
+
+.popup-header.iranEvent {
+  background: rgba(255, 68, 68, 0.1);
+}
+
+.popup-header.iranEvent.high {
+  border-left: 3px solid #ff3232;
+}
+
+.popup-header.iranEvent.medium {
+  border-left: 3px solid #ffa500;
+}
+
+.popup-header.iranEvent.low {
+  border-left: 3px solid #cccc00;
 }
 
 .popup-header.conflict {
@@ -6255,6 +6375,7 @@ a.prediction-link:hover {
 }
 
 .map-wrapper[data-layer-hidden-bases="true"] .base-marker,
+.map-wrapper[data-layer-hidden-iranAttacks="true"] .iran-event-marker,
 .map-wrapper[data-layer-hidden-nuclear="true"] .nuclear-marker,
 .map-wrapper[data-layer-hidden-natural="true"] .earthquake-marker,
 .map-wrapper[data-layer-hidden-natural="true"] .nat-event-marker,
@@ -7170,6 +7291,251 @@ a.prediction-link:hover {
   line-height: 1.3;
 }
 
+/* Trade Policy Panel */
+.economic-warning {
+  padding: 6px 10px;
+  font-size: 10px;
+  color: var(--semantic-elevated);
+  background: rgba(255, 170, 50, 0.08);
+  border-bottom: 1px solid rgba(255, 170, 50, 0.15);
+}
+
+.trade-restrictions-list,
+.trade-barriers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trade-restriction-card,
+.trade-barrier-card {
+  padding: 8px 10px;
+  background: var(--overlay-subtle);
+  border-radius: 4px;
+  border-left: 2px solid var(--border);
+  transition: all 0.15s;
+}
+
+.trade-restriction-card:hover,
+.trade-barrier-card:hover {
+  background: var(--overlay-light);
+  border-left-color: var(--green);
+}
+
+.trade-restriction-header,
+.trade-barrier-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.trade-country {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.trade-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  background: rgba(68, 255, 136, 0.1);
+  color: var(--text-dim);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.trade-status {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.trade-status.status-active {
+  background: rgba(255, 80, 80, 0.15);
+  color: var(--red);
+}
+
+.trade-status.status-notified {
+  background: rgba(255, 170, 50, 0.15);
+  color: var(--semantic-elevated);
+}
+
+.trade-status.status-terminated {
+  background: rgba(68, 255, 136, 0.1);
+  color: var(--green);
+}
+
+.sc-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin: 0 4px;
+  vertical-align: middle;
+}
+.sc-dot-red { background: var(--red, #ff5252); }
+.sc-dot-yellow { background: var(--yellow, #ffd740); }
+.sc-dot-green { background: var(--green, #69f0ae); }
+
+.sc-risk-critical { color: var(--red, #ff5252); font-weight: 600; }
+.sc-risk-high { color: var(--orange, #ffab40); font-weight: 600; }
+.sc-risk-moderate { color: var(--yellow, #ffd740); }
+.sc-risk-low { color: var(--green, #69f0ae); }
+
+.trade-sector {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.trade-description {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.trade-affected {
+  font-size: 9px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.trade-barrier-title {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.trade-restriction-footer,
+.trade-barrier-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.trade-date {
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+.trade-source-link {
+  font-size: 9px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.trade-source-link:hover {
+  text-decoration: underline;
+}
+
+/* Trade Tariffs Table */
+.trade-tariffs-table {
+  width: 100%;
+}
+
+.trade-tariffs-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.trade-tariffs-table thead th {
+  text-align: left;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 8px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.trade-tariffs-table tbody td {
+  padding: 5px 8px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.trade-tariffs-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.trade-tariffs-table tbody tr:hover {
+  background: var(--overlay-subtle);
+}
+
+/* Trade Flows */
+.trade-flows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trade-flow-card {
+  padding: 8px 10px;
+  background: var(--overlay-subtle);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trade-flow-card:hover {
+  background: var(--overlay-light);
+}
+
+.trade-flow-year {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  min-width: 36px;
+}
+
+.trade-flow-metrics {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+}
+
+.trade-flow-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.trade-flow-label {
+  font-size: 9px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.trade-flow-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.trade-flow-change {
+  font-size: 10px;
+}
+
+.trade-flow-change.change-positive {
+  color: var(--green);
+}
+
+.trade-flow-change.change-negative {
+  color: var(--red);
+}
+
 /* Search Modal (Cmd+K) */
 .search-overlay {
   position: fixed;
@@ -7339,6 +7705,21 @@ a.prediction-link:hover {
   font-size: 11px;
   margin-top: 8px;
   opacity: 0.7;
+}
+
+.search-empty-examples {
+  font-size: 11px;
+  margin-top: 12px;
+  opacity: 0.5;
+}
+
+.search-empty-examples kbd {
+  background: var(--bg-tertiary, rgba(255,255,255,0.08));
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-family: inherit;
+  margin: 0 2px;
 }
 
 .search-footer {
@@ -13088,6 +13469,113 @@ body.has-critical-banner .panels-grid {
   padding-top: 50px;
 }
 
+/* ============ Breaking News Alert Banner ============ */
+
+.breaking-news-container {
+  position: fixed;
+  top: 50px;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.breaking-alert {
+  pointer-events: auto;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: banner-slide-in 0.3s ease-out;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.breaking-alert.severity-critical {
+  background: linear-gradient(90deg, #8B0000, #DC143C);
+  border-bottom: 2px solid var(--semantic-critical);
+}
+
+.breaking-alert.severity-high {
+  background: linear-gradient(90deg, var(--semantic-high, #c2410c), #b45309);
+  border-bottom: 2px solid var(--semantic-high, #c2410c);
+}
+
+.breaking-alert-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.breaking-alert-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.breaking-alert-level {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  background: var(--overlay-heavy);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.breaking-alert.severity-critical .breaking-alert-level {
+  animation: pulse-breaking 0.8s ease-in-out infinite;
+}
+
+.breaking-alert-headline {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breaking-alert-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.breaking-alert-dismiss {
+  background: var(--overlay-heavy);
+  border: none;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.breaking-alert-dismiss:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+body.has-breaking-alert .panels-grid {
+  margin-top: var(--breaking-alert-offset, 0px);
+  transition: margin-top 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breaking-alert {
+    animation: none;
+  }
+  .breaking-alert.severity-critical .breaking-alert-level {
+    animation: none;
+  }
+}
+
 /* ============ Strategic Posture Panel ============ */
 
 .posture-panel {
@@ -14553,9 +15041,17 @@ body.has-critical-banner .panels-grid {
   color: var(--text-secondary);
 }
 
+.runtime-input-wrapper {
+  grid-area: input;
+  position: relative;
+}
+
+.runtime-input-wrapper.has-suffix input {
+  padding-right: 72px;
+}
+
 .runtime-secret-row input,
 .runtime-secret-row select {
-  grid-area: input;
   width: 100%;
   background: var(--overlay-medium);
   border: 1px solid var(--overlay-medium);
@@ -14563,6 +15059,34 @@ body.has-critical-banner .panels-grid {
   color: var(--accent);
   padding: 6px 8px;
   font-size: 11px;
+}
+
+/* Direct-child inputs/selects (not inside wrapper) still need grid-area */
+.runtime-secret-row > input,
+.runtime-secret-row > select {
+  grid-area: input;
+}
+
+.runtime-secret-link {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  border-radius: 3px;
+  padding: 2px 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.runtime-secret-link:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: var(--accent);
 }
 
 .runtime-secret-row input.hidden-input {
@@ -15340,4 +15864,115 @@ body.has-critical-banner .panels-grid {
     align-content: start;
     overflow-y: auto;
   }
+}
+
+/* ==========================================================================
+   Telegram Intel Panel
+   ========================================================================== */
+
+.telegram-intel-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 10px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.telegram-intel-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.telegram-intel-tab {
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.telegram-intel-tab:hover {
+  color: var(--text);
+  background: var(--overlay-subtle);
+}
+
+.telegram-intel-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 500;
+}
+
+.telegram-intel-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.telegram-intel-item {
+  display: block;
+  padding: 10px 12px;
+  background: var(--surface);
+  text-decoration: none;
+  transition: background 0.15s ease;
+  border-left: 2px solid transparent;
+}
+
+.telegram-intel-item:hover {
+  background: var(--overlay-light);
+  border-left-color: var(--accent);
+}
+
+.telegram-intel-item-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  gap: 8px;
+}
+
+.telegram-intel-channel {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 50%;
+}
+
+.telegram-intel-topic {
+  font-size: 9px;
+  color: var(--text-dim);
+  background: var(--overlay-subtle);
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.telegram-intel-time {
+  font-size: 10px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.telegram-intel-text {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.4;
+  display: -webkit-box;
+  line-clamp: 3;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

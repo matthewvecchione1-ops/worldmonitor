@@ -27,10 +27,6 @@ export interface ListWorldBankIndicatorsRequest {
   indicatorCode: string;
   countryCode: string;
   year: number;
-  pagination?: PaginationRequest;
-}
-
-export interface PaginationRequest {
   pageSize: number;
   cursor: string;
 }
@@ -166,6 +162,53 @@ export interface EnergyCapacityYear {
   capacityMw: number;
 }
 
+export interface GetBisPolicyRatesRequest {
+}
+
+export interface GetBisPolicyRatesResponse {
+  rates: BisPolicyRate[];
+}
+
+export interface BisPolicyRate {
+  countryCode: string;
+  countryName: string;
+  rate: number;
+  previousRate: number;
+  date: string;
+  centralBank: string;
+}
+
+export interface GetBisExchangeRatesRequest {
+}
+
+export interface GetBisExchangeRatesResponse {
+  rates: BisExchangeRate[];
+}
+
+export interface BisExchangeRate {
+  countryCode: string;
+  countryName: string;
+  realEer: number;
+  nominalEer: number;
+  realChange: number;
+  date: string;
+}
+
+export interface GetBisCreditRequest {
+}
+
+export interface GetBisCreditResponse {
+  entries: BisCreditToGdp[];
+}
+
+export interface BisCreditToGdp {
+  countryCode: string;
+  countryName: string;
+  creditGdpRatio: number;
+  previousRatio: number;
+  date: string;
+}
+
 export interface FieldViolation {
   field: string;
   description: string;
@@ -216,6 +259,9 @@ export interface EconomicServiceHandler {
   getEnergyPrices(ctx: ServerContext, req: GetEnergyPricesRequest): Promise<GetEnergyPricesResponse>;
   getMacroSignals(ctx: ServerContext, req: GetMacroSignalsRequest): Promise<GetMacroSignalsResponse>;
   getEnergyCapacity(ctx: ServerContext, req: GetEnergyCapacityRequest): Promise<GetEnergyCapacityResponse>;
+  getBisPolicyRates(ctx: ServerContext, req: GetBisPolicyRatesRequest): Promise<GetBisPolicyRatesResponse>;
+  getBisExchangeRates(ctx: ServerContext, req: GetBisExchangeRatesRequest): Promise<GetBisExchangeRatesResponse>;
+  getBisCredit(ctx: ServerContext, req: GetBisCreditRequest): Promise<GetBisCreditResponse>;
 }
 
 export function createEconomicServiceRoutes(
@@ -224,12 +270,18 @@ export function createEconomicServiceRoutes(
 ): RouteDescriptor[] {
   return [
     {
-      method: "POST",
+      method: "GET",
       path: "/api/economic/v1/get-fred-series",
       handler: async (req: Request): Promise<Response> => {
         try {
           const pathParams: Record<string, string> = {};
-          const body = await req.json() as GetFredSeriesRequest;
+          const url = new URL(req.url, "http://localhost");
+
+          const params = url.searchParams;
+          const body: GetFredSeriesRequest = {
+            seriesId: params.get("series_id") ?? "",
+            limit: Number(params.get("limit") ?? "0"),
+          };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("getFredSeries", body);
             if (bodyViolations) {
@@ -267,12 +319,20 @@ export function createEconomicServiceRoutes(
       },
     },
     {
-      method: "POST",
+      method: "GET",
       path: "/api/economic/v1/list-world-bank-indicators",
       handler: async (req: Request): Promise<Response> => {
         try {
           const pathParams: Record<string, string> = {};
-          const body = await req.json() as ListWorldBankIndicatorsRequest;
+          const url = new URL(req.url, "http://localhost");
+          const params = url.searchParams;
+          const body: ListWorldBankIndicatorsRequest = {
+            indicatorCode: params.get("indicator_code") ?? "",
+            countryCode: params.get("country_code") ?? "",
+            year: Number(params.get("year") ?? "0"),
+            pageSize: Number(params.get("page_size") ?? "0"),
+            cursor: params.get("cursor") ?? "",
+          };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("listWorldBankIndicators", body);
             if (bodyViolations) {
@@ -310,12 +370,16 @@ export function createEconomicServiceRoutes(
       },
     },
     {
-      method: "POST",
+      method: "GET",
       path: "/api/economic/v1/get-energy-prices",
       handler: async (req: Request): Promise<Response> => {
         try {
           const pathParams: Record<string, string> = {};
-          const body = await req.json() as GetEnergyPricesRequest;
+          const url = new URL(req.url, "http://localhost");
+          const params = url.searchParams;
+          const body: GetEnergyPricesRequest = {
+            commodities: params.getAll("commodities"),
+          };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("getEnergyPrices", body);
             if (bodyViolations) {
@@ -353,18 +417,12 @@ export function createEconomicServiceRoutes(
       },
     },
     {
-      method: "POST",
+      method: "GET",
       path: "/api/economic/v1/get-macro-signals",
       handler: async (req: Request): Promise<Response> => {
         try {
           const pathParams: Record<string, string> = {};
-          const body = await req.json() as GetMacroSignalsRequest;
-          if (options?.validateRequest) {
-            const bodyViolations = options.validateRequest("getMacroSignals", body);
-            if (bodyViolations) {
-              throw new ValidationError(bodyViolations);
-            }
-          }
+          const body = {} as GetMacroSignalsRequest;
 
           const ctx: ServerContext = {
             request: req,
@@ -396,12 +454,17 @@ export function createEconomicServiceRoutes(
       },
     },
     {
-      method: "POST",
+      method: "GET",
       path: "/api/economic/v1/get-energy-capacity",
       handler: async (req: Request): Promise<Response> => {
         try {
           const pathParams: Record<string, string> = {};
-          const body = await req.json() as GetEnergyCapacityRequest;
+          const url = new URL(req.url, "http://localhost");
+          const params = url.searchParams;
+          const body: GetEnergyCapacityRequest = {
+            energySources: params.getAll("energy_sources"),
+            years: Number(params.get("years") ?? "0"),
+          };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("getEnergyCapacity", body);
             if (bodyViolations) {
@@ -417,6 +480,117 @@ export function createEconomicServiceRoutes(
 
           const result = await handler.getEnergyCapacity(ctx, body);
           return new Response(JSON.stringify(result as GetEnergyCapacityResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/economic/v1/get-bis-policy-rates",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const body = {} as GetBisPolicyRatesRequest;
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.getBisPolicyRates(ctx, body);
+          return new Response(JSON.stringify(result as GetBisPolicyRatesResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/economic/v1/get-bis-exchange-rates",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const body = {} as GetBisExchangeRatesRequest;
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.getBisExchangeRates(ctx, body);
+          return new Response(JSON.stringify(result as GetBisExchangeRatesResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/economic/v1/get-bis-credit",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const body = {} as GetBisCreditRequest;
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.getBisCredit(ctx, body);
+          return new Response(JSON.stringify(result as GetBisCreditResponse), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });

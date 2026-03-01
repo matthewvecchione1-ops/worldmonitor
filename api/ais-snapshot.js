@@ -1,3 +1,4 @@
+// redeploy 20260301015139
 import { getCorsHeaders, isDisallowedOrigin } from './_cors.js';
 
 export const config = { runtime: 'edge' };
@@ -86,3 +87,4 @@ export default async function handler(req) {
     });
   }
 }
+

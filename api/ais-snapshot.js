@@ -4,7 +4,7 @@ import { getCorsHeaders, isDisallowedOrigin } from './_cors.js';
 export const config = { runtime: 'edge' };
 
 function getRelayBaseUrl() {
-  const relayUrl = process.env.WS_RELAY_URL;
+  const relayUrl = process.env.WS_RELAY_URL || 'https://worldmonitor-relay-jpg5.onrender.com';
   if (!relayUrl) return null;
   return relayUrl.replace('wss://', 'https://').replace('ws://', 'http://').replace(/\/$/, '');
 }
@@ -87,4 +87,5 @@ export default async function handler(req) {
     });
   }
 }
+
 

@@ -4,6 +4,7 @@ import type { MarketTick, SectorPerf } from '../../types/market';
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 function fmtPrice(price: number): string {
+  if (price == null || !isFinite(price)) return '—';
   if (price >= 10000) {
     return '$' + price.toLocaleString('en-US', { maximumFractionDigits: 0 });
   }
@@ -20,6 +21,7 @@ function changeColor(change: number): string {
 }
 
 function fmtChange(change: number): string {
+  if (change == null || !isFinite(change)) return '—';
   const sign = change >= 0 ? '+' : '';
   return `${sign}${change.toFixed(2)}%`;
 }

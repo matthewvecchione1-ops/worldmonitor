@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import type { MarketSummaryResponse } from '../types/market';
 import { API_BASE_URL } from '../lib/constants';
 
-interface MarketQuote { symbol: string; name: string; price: number; change: number; }
-interface CryptoQuote { symbol: string; name: string; price: number; change: number; }
-interface CommodityQuote { symbol: string; name: string; price: number; change: number; }
-interface SectorPerformance { symbol: string; name: string; change: number; }
+interface MarketQuote { symbol: string; name: string; price: number | null | undefined; change: number | null | undefined; }
+interface CryptoQuote { symbol: string; name: string; price: number | null | undefined; change: number | null | undefined; }
+interface CommodityQuote { symbol: string; name: string; price: number | null | undefined; change: number | null | undefined; }
+interface SectorPerformance { symbol: string; name: string; change: number | null | undefined; }
 
 export function useMarkets() {
   return useQuery<MarketSummaryResponse>({
@@ -28,15 +28,24 @@ export function useMarkets() {
       const sectors  = sectorsRes.status === 'fulfilled'  ? sectorsRes.value.sectors ?? []  : [];
 
       const tickers = [
-        ...equities.map(q => ({ ticker: q.symbol, price: q.price, change: q.change, category: 'equity' as const })),
-        ...crypto.map(q => ({ ticker: q.symbol.toUpperCase(), price: q.price, change: q.change, category: 'crypto' as const })),
-        ...comms.map(q => ({ ticker: q.symbol === 'XAU' ? 'GOLD' : q.symbol === 'CL' ? 'OIL' : q.symbol, price: q.price, change: q.change, category: 'commodity' as const })),
+        ...equities
+          .filter(q => q.price != null && q.change != null)
+          .map(q => ({ ticker: q.symbol, price: q.price as number, change: q.change as number, category: 'equity' as const })),
+        ...crypto
+          .filter(q => q.price != null && q.change != null)
+          .map(q => ({ ticker: q.symbol.toUpperCase(), price: q.price as number, change: q.change as number, category: 'crypto' as const })),
+        ...comms
+          .filter(q => q.price != null && q.change != null)
+          .map(q => ({ ticker: q.symbol === 'XAU' ? 'GOLD' : q.symbol === 'CL' ? 'OIL' : q.symbol, price: q.price as number, change: q.change as number, category: 'commodity' as const })),
       ];
 
-      const sectorRows = sectors.slice(0, 6).map(s => ({
-        name: s.name.replace('Select Sector', '').replace('SPDR Fund', '').trim().split(' ')[0] ?? s.symbol,
-        change: s.change,
-      }));
+      const sectorRows = sectors
+        .filter(s => s.change != null)
+        .slice(0, 6)
+        .map(s => ({
+          name: s.name.replace('Select Sector', '').replace('SPDR Fund', '').trim().split(' ')[0] ?? s.symbol,
+          change: s.change as number,
+        }));
 
       return { tickers, sectors: sectorRows };
     },

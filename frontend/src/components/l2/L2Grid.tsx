@@ -76,13 +76,6 @@ function disruptionSeverity(score: number): Severity {
   return 'low';
 }
 
-function cyberSeverity(sev?: string): Severity {
-  const s = (sev ?? '').toLowerCase();
-  if (s === 'critical') return 'critical';
-  if (s === 'high')     return 'high';
-  if (s === 'medium' || s === 'moderate') return 'moderate';
-  return 'low';
-}
 
 // ── L2 Card component ───────────────────────────────────────────────────────
 

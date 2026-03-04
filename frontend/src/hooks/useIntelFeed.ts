@@ -1,93 +1,84 @@
 import { useQuery } from '@tanstack/react-query';
-import type { IntelFeedResponse } from '../types/intel';
+import type { IntelFeedResponse, IntelItem } from '../types/intel';
+import { API_BASE_URL } from '../lib/constants';
 
-// ── Mock data — WIM prototype Intel Feed ────────────────────────────────
+interface GdeltArticle {
+  title: string;
+  url: string;
+  source: string;
+  date: string;
+  tone: number;
+}
 
-const MOCK_INTEL: IntelFeedResponse = {
+interface GdeltResponse {
+  articles: GdeltArticle[];
+  error?: string;
+}
+
+function toneToSeverity(tone: number): IntelItem['severity'] {
+  if (tone < -5) return 'alert';
+  if (tone < -2) return 'standard';
+  return 'standard';
+}
+
+function sourceToTag(source: string): string[] {
+  const s = source.toLowerCase();
+  if (s.includes('cyber') || s.includes('threat') || s.includes('secur')) return ['CYBER'];
+  if (s.includes('military') || s.includes('defense') || s.includes('war')) return ['MILITARY'];
+  if (s.includes('market') || s.includes('financial') || s.includes('oil')) return ['MARKETS'];
+  return ['INTEL'];
+}
+
+function relativeTime(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    const diff = (Date.now() - d.getTime()) / 1000 / 60;
+    if (diff < 60) return `${Math.round(diff)}m`;
+    if (diff < 1440) return `${Math.round(diff / 60)}h`;
+    return `${Math.round(diff / 1440)}d`;
+  } catch {
+    return '';
+  }
+}
+
+const FALLBACK_INTEL: IntelFeedResponse = {
   items: [
-    {
-      id: '1',
-      source: 'THE WAR ZONE',
-      headline: 'U.S.–Israeli War With Iran Enters Day Two — strikes across 3 provinces',
-      severity: 'alert',
-      tags: ['ALERT', 'MILITARY'],
-      timestamp: '2h',
-      isUrgent: true,
-    },
-    {
-      id: '2',
-      source: 'BBC WORLD',
-      headline: 'Khamenei confirmed dead by state media; Iran launches retaliatory strikes',
-      severity: 'alert',
-      tags: ['ALERT'],
-      timestamp: '4h',
-      isUrgent: true,
-    },
-    {
-      id: '3',
-      source: 'RANSOMWARE.LIVE',
-      headline: 'APT33 deploys wiper malware targeting Gulf state energy infrastructure',
-      severity: 'standard',
-      tags: ['CYBER'],
-      timestamp: '5h',
-      isUrgent: false,
-    },
-    {
-      id: '4',
-      source: 'REUTERS',
-      headline: 'Oil surges past $70 as Hormuz transit risk spikes; Brent up 4.2%',
-      severity: 'standard',
-      tags: ['MARKETS'],
-      timestamp: '6h',
-      isUrgent: false,
-    },
-    {
-      id: '5',
-      source: 'JANES',
-      headline: 'Satellite imagery confirms 3 Shahab-3 TELs repositioned near Dezful',
-      severity: 'standard',
-      tags: ['MILITARY'],
-      timestamp: '7h',
-      isUrgent: false,
-    },
-    {
-      id: '6',
-      source: 'FLIGHT RADAR',
-      headline: '47 commercial flights rerouted as Iran closes entire airspace',
-      severity: 'standard',
-      tags: ['ALERT'],
-      timestamp: '8h',
-      isUrgent: false,
-    },
-    {
-      id: '7',
-      source: 'AL JAZEERA',
-      headline: 'Hezbollah leadership meets in emergency session; border tensions rise',
-      severity: 'standard',
-      tags: ['CONFLICT'],
-      timestamp: '9h',
-      isUrgent: false,
-    },
-    {
-      id: '8',
-      source: 'MARITIME EXEC',
-      headline: '4 tankers reverse course at Hormuz; war risk insurance premiums triple',
-      severity: 'standard',
-      tags: ['MARKETS'],
-      timestamp: '10h',
-      isUrgent: false,
-    },
+    { id: 'f1', source: 'LIVE FEED', headline: 'Connecting to intelligence feed…', severity: 'standard', tags: ['INTEL'], timestamp: '', isUrgent: false },
   ],
-  total: 8,
+  total: 1,
   hasMore: false,
 };
-
-// ── Hook ─────────────────────────────────────────────────────────────────
 
 export function useIntelFeed(_limit = 50) {
   return useQuery<IntelFeedResponse>({
     queryKey: ['intel-feed'],
-    queryFn: async () => MOCK_INTEL,
-    staleTime: Infinity,
+    queryFn: async (): Promise<IntelFeedResponse> => {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/intelligence/v1/search-gdelt-documents?query=military+conflict+security+threat&max_records=20&timespan=24h&tone_filter=negative&sort=ToneAsc`
+        );
+        if (!res.ok) return FALLBACK_INTEL;
+        const data: GdeltResponse = await res.json();
+        if (!data.articles?.length) return FALLBACK_INTEL;
+
+        const items: IntelItem[] = data.articles.slice(0, _limit).map((a, i) => ({
+          id: `gdelt-${i}`,
+          source: (a.source ?? 'GDELT').toUpperCase(),
+          headline: a.title,
+          severity: toneToSeverity(a.tone),
+          tags: sourceToTag(a.source ?? ''),
+          timestamp: relativeTime(a.date),
+          isUrgent: a.tone < -6,
+          url: a.url,
+        }));
+
+        return { items, total: items.length, hasMore: false };
+      } catch {
+        return FALLBACK_INTEL;
+      }
+    },
+    staleTime: 3 * 60 * 1000,
+    retry: 1,
+    refetchInterval: 5 * 60 * 1000,
   });
 }

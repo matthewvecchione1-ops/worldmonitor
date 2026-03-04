@@ -396,10 +396,48 @@ const ALL_MAP_DATA: AllMapData = {
 
 // ── Hook ──────────────────────────────────────────────────────────────────
 
+import { API_BASE_URL } from '../lib/constants';
+
+interface TheaterPosture {
+  theater: string;
+  postureLevel: string;
+  activeFlights: number;
+  trackedVessels: number;
+  activeOperations: string[];
+}
+
 export function useMapAssets() {
   return useQuery<AllMapData>({
     queryKey: ['map-assets'],
-    queryFn: async () => ALL_MAP_DATA,
-    staleTime: Infinity,
+    queryFn: async (): Promise<AllMapData> => {
+      // Fetch live theater posture to update vessels tracked count
+      // Base static data (carrier positions, bases, etc.) is authoritative
+      // and gets overlaid with live flight/vessel counts from the API
+      try {
+        const res = await fetch(`${API_BASE_URL}/military/v1/get-theater-posture`);
+        const data: { theaters: TheaterPosture[] } = await res.json();
+        const theaters = data.theaters ?? [];
+
+        // Merge live vessel counts into chokepoints as a live annotation
+        const updatedChokepoints = ALL_MAP_DATA.chokepoints.map(cp => {
+          if (cp.name.includes('Hormuz')) {
+            const gulf = theaters.find(t => t.theater === 'PERSIAN_GULF' || t.theater === 'gulf');
+            if (gulf) {
+              return {
+                ...cp,
+                detail: cp.detail.replace(/\d+ ships currently transiting/, `${gulf.trackedVessels} vessels tracked live`),
+              };
+            }
+          }
+          return cp;
+        });
+
+        return { ...ALL_MAP_DATA, chokepoints: updatedChokepoints };
+      } catch {
+        return ALL_MAP_DATA;
+      }
+    },
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
   });
 }

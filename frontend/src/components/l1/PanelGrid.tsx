@@ -12,7 +12,7 @@ export default function PanelGrid() {
       <div className="section-context">
         <span className="sc-icon">◈</span>
         <strong>Live Feeds</strong>
-        {' '}— Real-time intel, ranked by relevance to the Iran crisis.
+        {' '}— Real-time global intelligence, updated continuously.
         Click any headline for full source.
       </div>
 

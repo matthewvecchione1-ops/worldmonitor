@@ -11,7 +11,6 @@ import {
   useMap,
 } from 'react-leaflet';
 import { useMapStore } from '../../stores/useMapStore';
-import { useFocusStore } from '../../stores/useFocusStore';
 import { useMapAssets } from '../../hooks/useMapAssets';
 import {
   createPulseIcon,
@@ -43,7 +42,6 @@ function MapResizer({ containerRef }: { containerRef: RefObject<HTMLDivElement> 
 
 export default function GlobalMap() {
   const { layers } = useMapStore();
-  const openCountryFocus = useFocusStore((s) => s.openCountryFocus);
   const { data } = useMapAssets();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +58,7 @@ export default function GlobalMap() {
       }}
     >
       <MapContainer
-        center={[28, 48]}
+        center={[20, 20]}
         zoom={3}
         minZoom={2}
         maxZoom={14}
@@ -81,19 +79,6 @@ export default function GlobalMap() {
           subdomains="abcd"
           maxZoom={19}
           pane="shadowPane"
-        />
-
-        {/* ── Invisible Iran click region ── */}
-        <Circle
-          center={[32.5, 53]}
-          radius={500000}
-          pathOptions={{
-            color: 'transparent',
-            fillColor: 'transparent',
-            fillOpacity: 0,
-            stroke: false,
-          }}
-          eventHandlers={{ click: () => openCountryFocus('iran') }}
         />
 
         {/* ── CARRIERS (pulse #00AAFF sz=16 outer=30) ── */}
@@ -367,7 +352,7 @@ export default function GlobalMap() {
           pointerEvents: 'none',
         }}
       >
-        MIDDLE EAST CRISIS — LIVE
+        GLOBAL SITUATION MONITOR
       </div>
 
       {/* Layer toggle panel — bottom-left */}

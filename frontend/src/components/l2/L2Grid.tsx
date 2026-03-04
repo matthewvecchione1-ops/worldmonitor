@@ -60,6 +60,36 @@ interface L2SectionData {
   cards: L2CardData[];
 }
 
+// ── Cyber threat type label map ─────────────────────────────────────────────
+
+const CYBER_TYPE_LABELS: Record<string, string> = {
+  CYBER_THREAT_TYPE_C2_SERVER:      'C2 Infrastructure',
+  CYBER_THREAT_TYPE_PHISHING:       'Phishing',
+  CYBER_THREAT_TYPE_MALWARE:        'Malware',
+  CYBER_THREAT_TYPE_RANSOMWARE:     'Ransomware',
+  CYBER_THREAT_TYPE_DDOS:           'DDoS Attack',
+  CYBER_THREAT_TYPE_SQL_INJECTION:  'SQL Injection',
+  CYBER_THREAT_TYPE_ZERO_DAY:       'Zero-Day Exploit',
+  CYBER_THREAT_TYPE_APT:            'APT Campaign',
+  CYBER_THREAT_TYPE_SUPPLY_CHAIN:   'Supply Chain Attack',
+  CYBER_THREAT_TYPE_INSIDER_THREAT: 'Insider Threat',
+  CYBER_THREAT_TYPE_DATA_BREACH:    'Data Breach',
+  CYBER_THREAT_TYPE_WIPER:          'Wiper Malware',
+  CYBER_THREAT_TYPE_BOTNET:         'Botnet',
+  CYBER_THREAT_TYPE_UNKNOWN:        'Unknown Threat',
+};
+
+/** Convert raw proto enum to human-readable label. Falls back to title-casing. */
+function formatCyberType(raw: string | undefined): string {
+  if (!raw) return '';
+  if (CYBER_TYPE_LABELS[raw]) return CYBER_TYPE_LABELS[raw]!;
+  return raw
+    .replace(/^CYBER_THREAT_TYPE_/, '')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 // ── Severity helpers ────────────────────────────────────────────────────────
 
 const SEV_COLOR: Record<Severity, string> = {
@@ -412,7 +442,7 @@ export default function L2Grid() {
         items: actorThreats.map(t => {
           const actor  = t.actor ?? 'Unknown';
           const sector = t.targetSector ?? t.target ?? 'unknown sector';
-          const type   = t.type ? `${t.type} against ` : '';
+          const type   = t.type ? `${formatCyberType(t.type)} against ` : '';
           return `${actor}: ${type}${sector}`;
         }),
       });
@@ -428,7 +458,7 @@ export default function L2Grid() {
         severity: 'critical',
         updatedAt,
         items: critThreats.map(t =>
-          t.description ?? `${t.type ?? 'Threat'} targeting ${t.targetSector ?? t.target ?? 'infrastructure'}`
+          t.description ?? `${formatCyberType(t.type) || 'Threat'} targeting ${t.targetSector ?? t.target ?? 'infrastructure'}`
         ),
       });
     } else if (threats.length > 0 && cards.length < 2) {
@@ -437,7 +467,7 @@ export default function L2Grid() {
         severity: 'moderate',
         updatedAt,
         items: threats.slice(0, 3).map(t =>
-          t.description ?? `${t.type ?? 'Unknown'}: ${t.targetSector ?? t.target ?? 'unknown'}`
+          t.description ?? `${formatCyberType(t.type) || 'Unknown'}: ${t.targetSector ?? t.target ?? 'unknown'}`
         ),
       });
     }

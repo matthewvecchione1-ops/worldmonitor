@@ -41,7 +41,12 @@ export default function IntelFeed() {
               ))}
               <span className="fi-time">{item.timestamp}</span>
             </div>
-            <div className={item.isUrgent ? 'fi-hl fi-hl-ur' : 'fi-hl'}>
+            <div
+              className={item.isUrgent ? 'fi-hl fi-hl-ur' : 'fi-hl'}
+              onClick={item.url ? () => window.open(item.url!, '_blank', 'noopener,noreferrer') : undefined}
+              style={item.url ? { cursor: 'pointer' } : undefined}
+              title={item.url ? 'Open source article' : undefined}
+            >
               {item.headline}
             </div>
           </div>

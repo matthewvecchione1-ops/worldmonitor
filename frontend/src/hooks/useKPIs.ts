@@ -16,6 +16,17 @@ interface PizzintResponse {
   };
 }
 
+interface CyberThreatsResponse {
+  total?: number;
+  pagination?: { totalCount?: number };
+  threats?: unknown[];
+}
+
+interface TheaterPostureResponse {
+  theaters?: { trackedVessels?: number }[];
+  postures?: { trackedVessels?: number }[];
+}
+
 const FALLBACK: KPISummaryResponse = {
   kpis: [
     { id: 'global-risk',     label: 'Global Risk Score', value: '--', change: null, changePeriod: 'live', isPrimary: true },
@@ -31,18 +42,33 @@ export function useKPIs() {
   return useQuery<KPISummaryResponse>({
     queryKey: ['kpis'],
     queryFn: async (): Promise<KPISummaryResponse> => {
-      const [riskRes, pizzintRes] = await Promise.allSettled([
+      const [riskRes, pizzintRes, cyberRes, theaterRes] = await Promise.allSettled([
         fetch(`${API_BASE_URL}/intelligence/v1/get-risk-scores`).then(r => r.json() as Promise<RiskScoresResponse>),
         fetch(`${API_BASE_URL}/intelligence/v1/get-pizzint-status?include_gdelt=false`).then(r => r.json() as Promise<PizzintResponse>),
+        fetch(`${API_BASE_URL}/cyber/v1/list-cyber-threats?limit=1`).then(r => r.json() as Promise<CyberThreatsResponse>),
+        fetch(`${API_BASE_URL}/military/v1/get-theater-posture`).then(r => r.json() as Promise<TheaterPostureResponse>),
       ]);
 
-      const risk = riskRes.status === 'fulfilled' ? riskRes.value : null;
+      const risk    = riskRes.status    === 'fulfilled' ? riskRes.value    : null;
       const pizzint = pizzintRes.status === 'fulfilled' ? pizzintRes.value : null;
+      const cyber   = cyberRes.status   === 'fulfilled' ? cyberRes.value   : null;
+      const theater = theaterRes.status === 'fulfilled' ? theaterRes.value : null;
 
       const globalScore = risk?.strategicRisks?.[0]?.score ?? null;
       const crisisCountries = risk?.ciiScores?.filter(c => c.combinedScore >= 40).length ?? null;
       const activeSpikes = pizzint?.pizzint?.activeSpikes ?? null;
       const liveSignals = pizzint?.pizzint?.aggregateActivity ?? null;
+
+      // Cyber incidents: prefer total field, then pagination count, then threat array length
+      const cyberTotal = cyber?.total
+        ?? cyber?.pagination?.totalCount
+        ?? (cyber?.threats?.length ?? null);
+
+      // Vessels tracked: sum trackedVessels across all theater postures
+      const theaterList = theater?.theaters ?? theater?.postures ?? [];
+      const vesselTotal = theaterList.length > 0
+        ? theaterList.reduce((sum, t) => sum + (t.trackedVessels ?? 0), 0)
+        : null;
 
       return {
         kpis: [
@@ -81,14 +107,14 @@ export function useKPIs() {
           {
             id: 'cyber-incidents',
             label: 'Cyber Incidents',
-            value: '--',
+            value: cyberTotal != null ? cyberTotal.toLocaleString() : '--',
             change: null,
             changePeriod: 'live',
           },
           {
             id: 'vessels-tracked',
             label: 'Vessels Tracked',
-            value: '--',
+            value: vesselTotal != null && vesselTotal > 0 ? vesselTotal.toLocaleString() : '--',
             change: null,
             changePeriod: 'Live AIS',
           },

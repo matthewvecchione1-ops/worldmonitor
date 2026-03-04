@@ -22,7 +22,7 @@ const MODES: Mode[] = ['LIVE', '24H', '7D', 'STRATEGIC'];
 export default function TopBar() {
   const [clock, setClock] = useState(() => formatClock(new Date()));
   const [activeMode, setActiveMode] = useState<Mode>('LIVE');
-  const { setNotificationsOpen, setMultiMonitorOpen, setSearchOpen, digestOpen, setDigestOpen } = useLayoutStore();
+  const { setNotificationsOpen, setMultiMonitorOpen, setSearchOpen } = useLayoutStore();
 
   // Real DEFCON — derived from global risk score
   const { data: kpiData } = useKPIs();
@@ -210,22 +210,7 @@ export default function TopBar() {
         </div>
       </div>
 
-      {/* ── Digest Button ── */}
-      <button
-        onClick={() => setDigestOpen(!digestOpen)}
-        className="flex items-center gap-[5px] rounded border cursor-pointer transition-all duration-200 flex-shrink-0 mx-1"
-        style={{
-          padding: '4px 12px',
-          background:  digestOpen ? 'rgba(0,204,255,0.12)' : '#0C1422',
-          borderColor: digestOpen ? '#00CCFF'              : '#1C2C42',
-          color:       digestOpen ? '#00CCFF'              : '#8CA0BC',
-        }}
-      >
-        <span style={{ fontSize: 12 }}>◉</span>
-        <span className="font-dis font-bold uppercase" style={{ fontSize: 10, letterSpacing: '0.12em' }}>
-          Digest
-        </span>
-      </button>
+      {/* Digest Mode removed — no real-time digest data source available */}
 
       {/* ── Audio Toggle ── */}
       <button

@@ -10,7 +10,7 @@ import { CHROME_UA } from '../../../_shared/constants';
 import { cachedFetchJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'intel:gdelt-docs:v1';
-const REDIS_CACHE_TTL = 600; // 10 min
+const REDIS_CACHE_TTL = 1800; // 30 min (CDN no-store → Redis is sole cache layer)
 
 // ========================================================================
 // Constants

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLayoutStore } from '../../stores/useLayoutStore';
+import { useKPIs } from '../../hooks/useKPIs';
 
 // Format UTC clock: "SUN, 01 MAR 2026   18:19:34 UTC"
 function formatClock(d: Date): string {
@@ -22,6 +23,23 @@ export default function TopBar() {
   const [clock, setClock] = useState(() => formatClock(new Date()));
   const [activeMode, setActiveMode] = useState<Mode>('LIVE');
   const { setNotificationsOpen, setMultiMonitorOpen, setSearchOpen, digestOpen, setDigestOpen } = useLayoutStore();
+
+  // Real DEFCON — derived from global risk score
+  const { data: kpiData } = useKPIs();
+  const riskKPI = kpiData?.kpis.find(k => k.id === 'global-risk');
+  const globalScore: number | null = typeof riskKPI?.value === 'number' ? riskKPI.value : null;
+  const defcon = globalScore == null ? 5
+    : globalScore >= 80 ? 1
+    : globalScore >= 60 ? 2
+    : globalScore >= 40 ? 3
+    : globalScore >= 20 ? 4
+    : 5;
+  const defconPct = globalScore ?? 0;
+  const defconColor = defcon === 1 ? '#FF2040'
+    : defcon === 2 ? '#FF6020'
+    : defcon === 3 ? '#F5A020'
+    : defcon === 4 ? '#00CCFF'
+    : '#00D878';
 
   // Live UTC clock
   useEffect(() => {
@@ -106,15 +124,15 @@ export default function TopBar() {
         className="flex items-center gap-[10px] rounded flex-shrink-0 mx-2 relative overflow-hidden cursor-pointer transition-all duration-300"
         style={{
           padding: '6px 14px',
-          background: 'rgba(255,96,32,0.15)',
-          border: '1px solid rgba(255,96,32,0.35)',
+          background: `${defconColor}26`,
+          border: `1px solid ${defconColor}59`,
         }}
       >
         {/* Glow background */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse at 50% 0%, rgba(255,96,32,0.12) 0%, transparent 70%)',
+            background: `radial-gradient(ellipse at 50% 0%, ${defconColor}1F 0%, transparent 70%)`,
             animation: 'defconGlo 3.5s ease-in-out infinite alternate',
           }}
         />
@@ -127,17 +145,18 @@ export default function TopBar() {
           </div>
           <div className="flex items-baseline gap-[5px]">
             <div
-              className="font-dis font-bold text-high"
+              className="font-dis font-bold"
               style={{
                 fontSize: 26,
                 lineHeight: 1,
+                color: defconColor,
                 animation: 'defconNum 4s ease-in-out infinite',
               }}
             >
-              2
+              {defcon}
             </div>
-            <div className="font-mon" style={{ fontSize: 10, color: 'rgba(255,96,32,0.6)' }}>
-              70%
+            <div className="font-mon" style={{ fontSize: 10, color: `${defconColor}99` }}>
+              {defconPct > 0 ? `${defconPct}%` : '—'}
             </div>
           </div>
         </div>
@@ -148,16 +167,16 @@ export default function TopBar() {
             <circle
               cx="18" cy="18" r="15.9"
               fill="none"
-              stroke="rgba(255,96,32,0.15)"
+              stroke={`${defconColor}26`}
               strokeWidth="2.5"
             />
-            {/* Main arc — clockwise */}
+            {/* Main arc — clockwise, fill = globalScore % */}
             <circle
               cx="18" cy="18" r="15.9"
               fill="none"
-              stroke="rgba(255,96,32,0.7)"
+              stroke={`${defconColor}B3`}
               strokeWidth="2.5"
-              strokeDasharray="70 30"
+              strokeDasharray={`${defconPct} ${100 - defconPct}`}
               strokeLinecap="round"
             >
               <animateTransform
@@ -173,7 +192,7 @@ export default function TopBar() {
             <circle
               cx="18" cy="18" r="15.9"
               fill="none"
-              stroke="rgba(255,96,32,0.3)"
+              stroke={`${defconColor}4D`}
               strokeWidth="1.5"
               strokeDasharray="20 80"
               strokeLinecap="round"

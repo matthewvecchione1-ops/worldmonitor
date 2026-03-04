@@ -55,7 +55,7 @@ export function useIntelFeed(_limit = 50) {
     queryFn: async (): Promise<IntelFeedResponse> => {
       try {
         const res = await fetch(
-          `${API_BASE_URL}/intelligence/v1/search-gdelt-documents?query=military+conflict+security+threat&max_records=20&timespan=24h&tone_filter=negative&sort=ToneAsc`
+          `${API_BASE_URL}/intelligence/v1/search-gdelt-documents?query=military+conflict+security+threat+sourcelang:english&max_records=20&timespan=48h&sort=date`
         );
         if (!res.ok) return FALLBACK_INTEL;
         const data: GdeltResponse = await res.json();

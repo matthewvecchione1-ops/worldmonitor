@@ -86,11 +86,30 @@ export function useCountryDossier(id: string | null) {
       const displayName = COUNTRY_NAMES[code] || code;
 
       try {
-        const briefRes = await fetch(
-          `${API_BASE_URL}/intelligence/v1/get-country-intel-brief?country_code=${code}`
-        );
-        if (!briefRes.ok) throw new Error('brief unavailable');
-        const brief: CountryIntelBriefResponse = await briefRes.json();
+        const [briefResult, riskResult] = await Promise.allSettled([
+          fetch(`${API_BASE_URL}/intelligence/v1/get-country-intel-brief?country_code=${code}`)
+            .then(r => { if (!r.ok) throw new Error('brief unavailable'); return r.json() as Promise<CountryIntelBriefResponse>; }),
+          fetch(`${API_BASE_URL}/intelligence/v1/get-risk-scores`)
+            .then(r => r.json() as Promise<RiskScoresResponse>),
+        ]);
+
+        if (briefResult.status === 'rejected') throw new Error('brief unavailable');
+        const brief = briefResult.value;
+
+        // Resolve real risk score from CII data
+        let riskScore = 0;
+        let riskLevel: 'critical' | 'high' | 'elevated' | 'moderate' | 'low' = 'moderate';
+        if (riskResult.status === 'fulfilled') {
+          const match = riskResult.value.ciiScores?.find(c => c.region.toUpperCase() === code);
+          if (match) {
+            riskScore = Math.round(match.combinedScore);
+            riskLevel = riskScore >= 75 ? 'critical'
+              : riskScore >= 60 ? 'high'
+              : riskScore >= 45 ? 'elevated'
+              : riskScore >= 30 ? 'moderate'
+              : 'low';
+          }
+        }
 
         return {
           id,
@@ -99,9 +118,9 @@ export function useCountryDossier(id: string | null) {
           region: '',
           population: '',
           flagEmoji: '',
-          riskScore: 0,
+          riskScore,
           riskChange: 0,
-          riskLevel: 'moderate',
+          riskLevel,
           situation: brief.brief || 'Intelligence brief unavailable.',
           stats: [],
           entities: [],

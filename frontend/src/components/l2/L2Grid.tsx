@@ -1,6 +1,47 @@
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { API_BASE_URL } from '../../lib/constants';
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── API response types ──────────────────────────────────────────────────────
+
+interface Chokepoint {
+  id?: string;
+  name: string;
+  status?: string;
+  disruptionScore?: number;
+  congestionLevel?: number;
+  activeWarnings?: number;
+  description?: string;
+  affectedRoutes?: string[];
+}
+interface ChokepointResponse { chokepoints?: Chokepoint[] }
+
+interface Theater {
+  theater?: string;
+  name?: string;
+  region?: string;
+  postureLevel?: string;
+  status?: string;
+  activeFlights?: number;
+  trackedVessels?: number;
+  activeOperations?: string[];
+}
+interface TheaterResponse { theaters?: Theater[]; postures?: Theater[] }
+
+interface CyberThreat {
+  id?: string;
+  type?: string;
+  actor?: string;
+  target?: string;
+  targetSector?: string;
+  severity?: string;
+  description?: string;
+  attribution?: string;
+  country?: string;
+}
+interface CyberResponse { threats?: CyberThreat[]; total?: number; pagination?: { totalCount: number } }
+
+// ── Local card types ────────────────────────────────────────────────────────
 
 type Severity = 'critical' | 'high' | 'moderate' | 'low';
 
@@ -19,7 +60,7 @@ interface L2SectionData {
   cards: L2CardData[];
 }
 
-// ── Severity dot colors ────────────────────────────────────────────────────
+// ── Severity helpers ────────────────────────────────────────────────────────
 
 const SEV_COLOR: Record<Severity, string> = {
   critical: '#FF2040',
@@ -28,211 +69,24 @@ const SEV_COLOR: Record<Severity, string> = {
   low:      '#00D878',
 };
 
-// ── Mock data ──────────────────────────────────────────────────────────────
-
-const L2_SECTIONS: L2SectionData[] = [
-  {
-    id: 'infrastructure',
-    icon: '⬡',
-    name: 'Infrastructure & Supply Chain',
-    color: '#FF9000',
-    cards: [
-      {
-        title: 'CRITICAL CHOKEPOINTS',
-        severity: 'critical',
-        updatedAt: '4m ago',
-        items: [
-          'Hormuz: CRITICAL — 23 ships, 4 turned back',
-          'Suez: ELEVATED — 47 ships, 4–6h delay',
-          'Bab el-Mandeb: HIGH — Houthi missile range',
-        ],
-      },
-      {
-        title: 'ENERGY INFRASTRUCTURE',
-        severity: 'high',
-        updatedAt: '2m ago',
-        items: [
-          'Isfahan refinery: ACTIVE FIRE',
-          'Bushehr refinery: ACTIVE FIRE',
-          'Kharg Island terminal: AT RISK — 90% Iran exports',
-        ],
-      },
-      {
-        title: 'SUPPLY CHAIN DISRUPTIONS',
-        severity: 'high',
-        updatedAt: '11m ago',
-        items: [
-          'Cape reroute adding +10 days transit',
-          'War risk insurance +300%',
-          'Container rates spiking on Asia–Europe routes',
-        ],
-      },
-      {
-        title: 'SHIPPING & LOGISTICS',
-        severity: 'moderate',
-        updatedAt: '7m ago',
-        items: [
-          '312 vessels tracked in theater',
-          '4 tankers reversed at Hormuz',
-          'LNG carriers rerouting from Qatar',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'financial',
-    icon: '◈',
-    name: 'Financial Intelligence',
-    color: '#00D878',
-    cards: [
-      {
-        title: 'SANCTIONS TRACKER',
-        severity: 'high',
-        updatedAt: '8m ago',
-        items: [
-          'New OFAC designations pending on IRGC units',
-          'SWIFT cutoff for 3 Iranian banks imminent',
-          'Russia–Iran payment channels under scrutiny',
-        ],
-      },
-      {
-        title: 'TRADE FLOW IMPACT',
-        severity: 'high',
-        updatedAt: '15m ago',
-        items: [
-          'Iran oil exports: effectively zero during conflict',
-          'Gulf state LNG: force majeure discussions',
-          'Asian refiners scrambling for alternative crude',
-        ],
-      },
-      {
-        title: 'CURRENCY STRESS',
-        severity: 'moderate',
-        updatedAt: '6m ago',
-        items: [
-          'IRR: 612,400/USD (+8.6% in 24h)',
-          'TRY under pressure from regional instability',
-          'Safe haven flows into CHF, JPY, Gold',
-        ],
-      },
-      {
-        title: 'ENERGY MARKETS',
-        severity: 'moderate',
-        updatedAt: '3m ago',
-        items: [
-          'Brent: $67.02 (+4.2%)',
-          'WTI: $63.40 (+3.8%)',
-          'European gas futures: +12% on supply fears',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'military',
-    icon: '⚔',
-    name: 'Military & Defense',
-    color: '#FF2040',
-    cards: [
-      {
-        title: 'FORCE POSTURE',
-        severity: 'critical',
-        updatedAt: '1m ago',
-        items: [
-          '4 CSGs in theater (Nimitz, Lincoln, Reagan, Truman)',
-          'THAAD batteries deployed: Qatar, UAE, Israel',
-          'B-2 Spirit en route with GBU-57 MOPs',
-        ],
-      },
-      {
-        title: 'WEAPONS SYSTEMS',
-        severity: 'critical',
-        updatedAt: '9m ago',
-        items: [
-          'Shahab-3 TELs: 3 repositioned near Dezful',
-          'Emad MRBMs: launchers at Kermanshah',
-          'Houthi SSMs: C-802/Noor in Hodeidah',
-        ],
-      },
-      {
-        title: 'ALLIANCE ACTIVITY',
-        severity: 'high',
-        updatedAt: '13m ago',
-        items: [
-          'NATO Article 5 consultation requested',
-          'UK deploying HMS Queen Elizabeth to Med',
-          'France raising VIGIPIRATE to max',
-        ],
-      },
-      {
-        title: 'ARMS TRANSFERS',
-        severity: 'moderate',
-        updatedAt: '22m ago',
-        items: [
-          'Russia–Iran S-400 delivery: status unknown',
-          'China positioning: calling for restraint',
-          'North Korea monitoring for opportunistic action',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'cyber',
-    icon: '⬢',
-    name: 'Cyber Threat Landscape',
-    color: '#CC44FF',
-    cards: [
-      {
-        title: 'ACTIVE CAMPAIGNS',
-        severity: 'critical',
-        updatedAt: '2m ago',
-        items: [
-          'APT33: wiper malware on Gulf energy targets',
-          'APT35: phishing US defense contractors',
-          'MuddyWater: espionage against Israeli gov',
-        ],
-      },
-      {
-        title: 'THREAT ACTOR PROFILES',
-        severity: 'high',
-        updatedAt: '18m ago',
-        items: [
-          'APT33 (Elfin): IRGC-linked, destructive capability',
-          'APT35 (Charming Kitten): Intel collection',
-          'Shamoon 4.0 variant: detected, not yet deployed',
-        ],
-      },
-      {
-        title: 'VULNERABILITY LANDSCAPE',
-        severity: 'high',
-        updatedAt: '5m ago',
-        items: [
-          'ICS/SCADA in Gulf: 47 exposed endpoints',
-          'Oil & gas sector: 12 critical CVEs unpatched',
-          'DNS infrastructure: DDoS staging detected',
-        ],
-      },
-      {
-        title: 'ATTRIBUTION CONFIDENCE',
-        severity: 'moderate',
-        updatedAt: '10m ago',
-        items: [
-          'APT33 Gulf campaign: HIGH (NSA/CYBERCOM)',
-          'Shamoon variant: MODERATE (behavioral match)',
-          'DDoS staging: LOW (proxy infrastructure)',
-        ],
-      },
-    ],
-  },
-];
-
-// ── L2 Card ────────────────────────────────────────────────────────────────
-
-interface L2CardProps {
-  card: L2CardData;
-  accentColor: string;
+function disruptionSeverity(score: number): Severity {
+  if (score >= 75) return 'critical';
+  if (score >= 50) return 'high';
+  if (score >= 25) return 'moderate';
+  return 'low';
 }
 
-function L2Card({ card, accentColor }: L2CardProps) {
+function cyberSeverity(sev?: string): Severity {
+  const s = (sev ?? '').toLowerCase();
+  if (s === 'critical') return 'critical';
+  if (s === 'high')     return 'high';
+  if (s === 'medium' || s === 'moderate') return 'moderate';
+  return 'low';
+}
+
+// ── L2 Card component ───────────────────────────────────────────────────────
+
+function L2Card({ card, accentColor }: { card: L2CardData; accentColor: string }) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -312,13 +166,9 @@ function L2Card({ card, accentColor }: L2CardProps) {
   );
 }
 
-// ── L2 Section ────────────────────────────────────────────────────────────
+// ── L2 Section component ────────────────────────────────────────────────────
 
-interface L2SectionProps {
-  section: L2SectionData;
-}
-
-function L2Section({ section }: L2SectionProps) {
+function L2Section({ section }: { section: L2SectionData }) {
   return (
     <div style={{ padding: '0 6px 20px' }}>
       {/* Section header */}
@@ -362,7 +212,7 @@ function L2Section({ section }: L2SectionProps) {
         </span>
       </div>
 
-      {/* 2×2 card grid */}
+      {/* 2-col card grid */}
       <div
         style={{
           display: 'grid',
@@ -378,12 +228,11 @@ function L2Section({ section }: L2SectionProps) {
   );
 }
 
-// ── L2 Divider ────────────────────────────────────────────────────────────
+// ── L2 Divider ──────────────────────────────────────────────────────────────
 
 function L2Divider() {
   return (
     <div style={{ padding: '16px 6px 14px', textAlign: 'center' }}>
-      {/* Centered label over horizontal line */}
       <div style={{ position: 'relative', marginBottom: 7 }}>
         <div
           style={{
@@ -413,7 +262,6 @@ function L2Divider() {
           LEVEL 2 · DEEP INTELLIGENCE
         </span>
       </div>
-      {/* Subtitle */}
       <p
         style={{
           margin: 0,
@@ -422,19 +270,227 @@ function L2Divider() {
           fontFamily: 'DM Sans, sans-serif',
         }}
       >
-        Sector-specific analysis across infrastructure, financial, military, and cyber domains
+        Sector-specific analysis across infrastructure, military, and cyber domains
       </p>
     </div>
   );
 }
 
-// ── L2Grid (main export) ──────────────────────────────────────────────────
+// ── L2Grid (main export) ────────────────────────────────────────────────────
 
 export default function L2Grid() {
+  const updatedAt = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+  const { data: chopData } = useQuery<ChokepointResponse>({
+    queryKey: ['chokepoints-l2'],
+    queryFn: () => fetch(`${API_BASE_URL}/supply-chain/v1/get-chokepoint-status`).then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const { data: theaterData } = useQuery<TheaterResponse>({
+    queryKey: ['theater-posture-l2'],
+    queryFn: () => fetch(`${API_BASE_URL}/military/v1/get-theater-posture`).then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const { data: cyberData } = useQuery<CyberResponse>({
+    queryKey: ['cyber-threats-l2'],
+    queryFn: () => fetch(`${API_BASE_URL}/cyber/v1/list-cyber-threats?limit=8`).then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const sections: L2SectionData[] = [];
+
+  // ── Infrastructure section (from chokepoints) ──
+  const chokepoints = chopData?.chokepoints ?? [];
+  if (chokepoints.length > 0) {
+    const sorted = [...chokepoints].sort((a, b) => (b.disruptionScore ?? 0) - (a.disruptionScore ?? 0));
+    const topChoke  = sorted.slice(0, 3);
+    const restChoke = sorted.slice(3, 6);
+
+    const cards: L2CardData[] = [];
+
+    if (topChoke.length > 0) {
+      const maxScore = Math.max(...topChoke.map(c => c.disruptionScore ?? 0));
+      cards.push({
+        title: 'CRITICAL CHOKEPOINTS',
+        severity: disruptionSeverity(maxScore),
+        updatedAt,
+        items: topChoke.map(c => {
+          const pct  = c.disruptionScore != null ? ` — ${c.disruptionScore}% disruption` : '';
+          const warn = c.activeWarnings  ? ` · ${c.activeWarnings} warnings` : '';
+          return `${c.name}: ${c.status ?? 'monitored'}${pct}${warn}`;
+        }),
+      });
+    }
+
+    if (restChoke.length > 0) {
+      cards.push({
+        title: 'SHIPPING STATUS',
+        severity: 'moderate',
+        updatedAt,
+        items: restChoke.map(c => {
+          const cong = c.congestionLevel != null ? ` — congestion ${c.congestionLevel}%` : '';
+          return `${c.name}: ${c.status ?? 'normal'}${cong}`;
+        }),
+      });
+    }
+
+    if (cards.length > 0) {
+      sections.push({
+        id: 'infrastructure',
+        icon: '⬡',
+        name: 'Infrastructure & Supply Chain',
+        color: '#FF9000',
+        cards,
+      });
+    }
+  }
+
+  // ── Military section (from theater posture) ──
+  const theaters = theaterData?.theaters ?? theaterData?.postures ?? [];
+  if (theaters.length > 0) {
+    const cards: L2CardData[] = [];
+
+    const postureItems = theaters.slice(0, 4).map(t => {
+      const name    = t.theater ?? t.name ?? t.region ?? 'Unknown';
+      const posture = t.postureLevel ?? t.status ?? 'nominal';
+      const vessels = t.trackedVessels ? ` · ${t.trackedVessels} vessels` : '';
+      const flights = t.activeFlights  ? ` · ${t.activeFlights} flights`  : '';
+      return `${name}: ${posture}${vessels}${flights}`;
+    });
+
+    if (postureItems.length > 0) {
+      const hasCritical = theaters.some(t =>
+        (t.postureLevel ?? t.status ?? '').toLowerCase().match(/critical|high|elevated/)
+      );
+      cards.push({
+        title: 'FORCE POSTURE',
+        severity: hasCritical ? 'high' : 'moderate',
+        updatedAt,
+        items: postureItems,
+      });
+    }
+
+    const opsItems = theaters
+      .filter(t => t.activeOperations?.length)
+      .slice(0, 3)
+      .map(t => {
+        const name = t.theater ?? t.name ?? t.region ?? 'Unknown';
+        const ops  = t.activeOperations!.slice(0, 2).join(', ');
+        return `${name}: ${ops}`;
+      });
+
+    if (opsItems.length > 0) {
+      cards.push({
+        title: 'ACTIVE OPERATIONS',
+        severity: 'moderate',
+        updatedAt,
+        items: opsItems,
+      });
+    }
+
+    if (cards.length > 0) {
+      sections.push({
+        id: 'military',
+        icon: '⚔',
+        name: 'Military & Defense',
+        color: '#FF2040',
+        cards,
+      });
+    }
+  }
+
+  // ── Cyber section (from threat feed) ──
+  const threats = cyberData?.threats ?? [];
+  if (threats.length > 0) {
+    const cards: L2CardData[] = [];
+
+    // Active threat actors
+    const actorThreats = threats.filter(t => t.actor).slice(0, 4);
+    if (actorThreats.length > 0) {
+      cards.push({
+        title: 'ACTIVE THREAT ACTORS',
+        severity: 'high',
+        updatedAt,
+        items: actorThreats.map(t => {
+          const actor  = t.actor ?? 'Unknown';
+          const sector = t.targetSector ?? t.target ?? 'unknown sector';
+          const type   = t.type ? `${t.type} against ` : '';
+          return `${actor}: ${type}${sector}`;
+        }),
+      });
+    }
+
+    // High/critical severity threats
+    const critThreats = threats
+      .filter(t => ['critical', 'high'].includes((t.severity ?? '').toLowerCase()))
+      .slice(0, 3);
+    if (critThreats.length > 0) {
+      cards.push({
+        title: 'HIGH-SEVERITY THREATS',
+        severity: 'critical',
+        updatedAt,
+        items: critThreats.map(t =>
+          t.description ?? `${t.type ?? 'Threat'} targeting ${t.targetSector ?? t.target ?? 'infrastructure'}`
+        ),
+      });
+    } else if (threats.length > 0 && cards.length < 2) {
+      cards.push({
+        title: 'THREAT LANDSCAPE',
+        severity: 'moderate',
+        updatedAt,
+        items: threats.slice(0, 3).map(t =>
+          t.description ?? `${t.type ?? 'Unknown'}: ${t.targetSector ?? t.target ?? 'unknown'}`
+        ),
+      });
+    }
+
+    if (cards.length > 0) {
+      sections.push({
+        id: 'cyber',
+        icon: '⬢',
+        name: 'Cyber Threat Landscape',
+        color: '#CC44FF',
+        cards,
+      });
+    }
+  }
+
+  const isLoading = !chopData && !theaterData && !cyberData;
+
   return (
     <div style={{ flexShrink: 0 }}>
       <L2Divider />
-      {L2_SECTIONS.map((section) => (
+
+      {isLoading && (
+        <div style={{
+          padding: '24px',
+          textAlign: 'center',
+          color: '#4E6480',
+          fontSize: 12,
+          fontFamily: 'JetBrains Mono, monospace',
+        }}>
+          Loading deep intelligence…
+        </div>
+      )}
+
+      {!isLoading && sections.length === 0 && (
+        <div style={{
+          padding: '24px',
+          textAlign: 'center',
+          color: '#4E6480',
+          fontSize: 12,
+          fontFamily: 'DM Sans, sans-serif',
+        }}>
+          No deep intelligence data available at this time
+        </div>
+      )}
+
+      {sections.map((section) => (
         <L2Section key={section.id} section={section} />
       ))}
     </div>

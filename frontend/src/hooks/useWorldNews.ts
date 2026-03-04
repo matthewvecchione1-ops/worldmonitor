@@ -41,7 +41,7 @@ export function useWorldNews(_limit = 50) {
     queryFn: async (): Promise<IntelFeedResponse> => {
       try {
         const res = await fetch(
-          `${API_BASE_URL}/intelligence/v1/search-gdelt-documents?query=world+news+geopolitics+diplomacy&max_records=20&timespan=12h&sort=DateDesc`
+          `${API_BASE_URL}/intelligence/v1/search-gdelt-documents?query=world+news+geopolitics+diplomacy+sourcelang:english&max_records=20&timespan=72h&sort=date`
         );
         if (!res.ok) return FALLBACK_NEWS;
         const data: GdeltResponse = await res.json();

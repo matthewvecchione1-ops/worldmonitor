@@ -27,7 +27,7 @@ const MENU_HELP_GITHUB_ID: &str = "help.github";
 #[cfg(feature = "devtools")]
 const MENU_HELP_DEVTOOLS_ID: &str = "help.devtools";
 const TRUSTED_WINDOWS: [&str; 3] = ["main", "settings", "live-channels"];
-const SUPPORTED_SECRET_KEYS: [&str; 24] = [
+const SUPPORTED_SECRET_KEYS: [&str; 25] = [
     "GROQ_API_KEY",
     "OPENROUTER_API_KEY",
     "FRED_API_KEY",
@@ -46,6 +46,7 @@ const SUPPORTED_SECRET_KEYS: [&str; 24] = [
     "VITE_WS_RELAY_URL",
     "FINNHUB_API_KEY",
     "NASA_FIRMS_API_KEY",
+    "UCDP_ACCESS_TOKEN",
     "OLLAMA_API_URL",
     "OLLAMA_MODEL",
     "WORLDMONITOR_API_KEY",
@@ -425,8 +426,8 @@ fn open_in_shell(arg: &str) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     let mut command = {
-        let mut cmd = Command::new("explorer");
-        cmd.arg(arg);
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/c", "start", "", arg]);
         cmd
     };
 
@@ -434,6 +435,8 @@ fn open_in_shell(arg: &str) -> Result<(), String> {
     let mut command = {
         let mut cmd = Command::new("xdg-open");
         cmd.arg(arg);
+        cmd.env_remove("LD_LIBRARY_PATH");
+        cmd.env_remove("LD_PRELOAD");
         cmd
     };
 
@@ -561,8 +564,8 @@ fn open_settings_window(app: &AppHandle) -> Result<(), String> {
 
     let _settings_window = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
         .title("World Monitor Settings")
-        .inner_size(980.0, 760.0)
-        .min_inner_size(820.0, 620.0)
+        .inner_size(980.0, 600.0)
+        .min_inner_size(820.0, 480.0)
         .resizable(true)
         .background_color(tauri::webview::Color(26, 28, 30, 255))
         .build()
@@ -847,9 +850,17 @@ fn resolve_node_binary(app: &AppHandle) -> Option<PathBuf> {
     if !cfg!(debug_assertions) {
         let node_name = if cfg!(windows) { "node.exe" } else { "node" };
         if let Ok(resource_dir) = app.path().resource_dir() {
-            let bundled = resource_dir.join("sidecar").join("node").join(node_name);
-            if bundled.is_file() {
-                return Some(bundled);
+            let mut candidates = vec![resource_dir.join("sidecar").join("node").join(node_name)];
+            if cfg!(windows) {
+                // NSIS resource paths can flatten nested names in some upgrade scenarios.
+                // Keep this fallback so sidecar startup still succeeds if the runtime is
+                // materialized as sidecar\node.node.exe instead of sidecar\node\node.exe.
+                candidates.push(resource_dir.join("sidecar").join("node.node.exe"));
+            }
+            for bundled in candidates {
+                if bundled.is_file() {
+                    return Some(bundled);
+                }
             }
         }
     }

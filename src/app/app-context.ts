@@ -8,7 +8,7 @@ import type { MarketData, ClusteredEvent } from '@/types';
 import type { PredictionMarket } from '@/services/prediction';
 import type { TimeRange } from '@/components';
 import type { Earthquake } from '@/services/earthquakes';
-import type { CountryBriefPage } from '@/components/CountryBriefPage';
+import type { CountryBriefPanel } from '@/components/CountryBriefPanel';
 import type { CountryTimeline } from '@/components/CountryTimeline';
 import type { PlaybackControl } from '@/components';
 import type { ExportPanel } from '@/utils';
@@ -27,10 +27,15 @@ import type { TvModeController } from '@/services/tv-mode';
 import type { BreakingNewsBanner } from '@/components/BreakingNewsBanner';
 
 export interface CountryBriefSignals {
+  criticalNews: number;
   protests: number;
   militaryFlights: number;
   militaryVessels: number;
   outages: number;
+  aisDisruptions: number;
+  satelliteFires: number;
+  temporalAnomalies: number;
+  cyberThreats: number;
   earthquakes: number;
   displacementOutflow: number;
   climateStress: number;
@@ -99,7 +104,7 @@ export interface AppContext {
   unifiedSettings: UnifiedSettings | null;
   mobileWarningModal: MobileWarningModal | null;
   pizzintIndicator: PizzIntIndicator | null;
-  countryBriefPage: CountryBriefPage | null;
+  countryBriefPage: CountryBriefPanel | null;
   countryTimeline: CountryTimeline | null;
 
   // Happy variant state
@@ -117,6 +122,7 @@ export interface AppContext {
   isPlaybackMode: boolean;
   isIdle: boolean;
   initialLoadComplete: boolean;
+  resolvedLocation: 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
 
   initialUrlState: ParsedMapUrlState | null;
   readonly PANEL_ORDER_KEY: string;

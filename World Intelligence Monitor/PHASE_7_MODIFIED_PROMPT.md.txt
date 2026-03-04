@@ -1,0 +1,127 @@
+Phase 7 (Modified): L2 Deep Intelligence + Search Palette + Polish
+Part A: Level 2 — Deep Intelligence Sections
+Build the L2 content that appears when the user scrolls below the L1 panel grid. These are 4 domain sections with card grids.
+Reference: frontend/docs/02_COMPONENT_INVENTORY.md (component 9: L2Section), and the prototype — scroll down past the 4 panels to see L2.
+Section divider between L1 and L2:
+
+"LEVEL 2 · DEEP INTELLIGENCE" (Rajdhani 700 11px, letter-spacing 0.2em, --txt-4, centered)
+Thin horizontal line (1px --border) with faded edges (gradient transparent → --border → transparent)
+Subtitle: "Sector-specific analysis across infrastructure, financial, military, and cyber domains" (DM Sans 10px, --txt-3)
+
+Each L2 section pattern:
+
+Section header: domain icon + domain name (Rajdhani 700 12px uppercase, domain color) + item count badge
+4 cards in a 2x2 grid (or 4-column on wide screens)
+Each card: title, 2-3 bullet data points, severity indicator, "Last updated" timestamp
+
+Section 1: Infrastructure & Supply Chain (icon: ⬡, color: #FF9000)
+typescript[
+  { title: "CRITICAL CHOKEPOINTS", items: ["Hormuz: CRITICAL — 23 ships, 4 turned back", "Suez: ELEVATED — 47 ships, 4-6h delay", "Bab el-Mandeb: HIGH — Houthi missile range"], severity: "critical" },
+  { title: "ENERGY INFRASTRUCTURE", items: ["Isfahan refinery: ACTIVE FIRE", "Bushehr refinery: ACTIVE FIRE", "Kharg Island terminal: AT RISK — 90% Iran exports"], severity: "high" },
+  { title: "SUPPLY CHAIN DISRUPTIONS", items: ["Cape reroute adding +10 days transit", "War risk insurance +300%", "Container rates spiking on Asia-Europe routes"], severity: "high" },
+  { title: "SHIPPING & LOGISTICS", items: ["312 vessels tracked in theater", "4 tankers reversed at Hormuz", "LNG carriers rerouting from Qatar"], severity: "moderate" },
+]
+Section 2: Financial Intelligence (icon: ◈, color: #00D878)
+typescript[
+  { title: "SANCTIONS TRACKER", items: ["New OFAC designations pending on IRGC units", "SWIFT cutoff for 3 Iranian banks imminent", "Russia-Iran payment channels under scrutiny"], severity: "high" },
+  { title: "TRADE FLOW IMPACT", items: ["Iran oil exports: effectively zero during conflict", "Gulf state LNG contracts: force majeure discussions", "Asian refiners scrambling for alternative crude"], severity: "high" },
+  { title: "CURRENCY STRESS", items: ["IRR: 612,400/USD (+8.6% in 24h)", "TRY under pressure from regional instability", "Safe haven flows into CHF, JPY, Gold"], severity: "moderate" },
+  { title: "ENERGY MARKETS DEEP DIVE", items: ["Brent: $67.02 (+4.2%)", "WTI: $63.40 (+3.8%)", "European gas futures: +12% on supply fears"], severity: "moderate" },
+]
+Section 3: Military & Defense (icon: ⚔, color: #FF2040)
+typescript[
+  { title: "FORCE POSTURE", items: ["4 CSGs in theater (Nimitz, Lincoln, Reagan, Truman)", "THAAD batteries deployed: Qatar, UAE, Israel", "B-2 Spirit en route with GBU-57 MOPs"], severity: "critical" },
+  { title: "WEAPONS SYSTEMS TRACKED", items: ["Shahab-3 TELs: 3 repositioned near Dezful", "Emad MRBMs: launchers at Kermanshah", "Houthi SSMs: C-802/Noor in Hodeidah"], severity: "critical" },
+  { title: "ALLIANCE ACTIVITY", items: ["NATO Article 5 consultation requested", "UK deploying HMS Queen Elizabeth to Med", "France raising VIGIPIRATE to max"], severity: "high" },
+  { title: "ARMS TRANSFERS", items: ["Russia-Iran S-400 delivery: status unknown", "China diplomatic positioning: calling for restraint", "North Korea monitoring for opportunistic action"], severity: "moderate" },
+]
+Section 4: Cyber Threat Landscape (icon: ⬢, color: #CC44FF)
+typescript[
+  { title: "ACTIVE CAMPAIGNS", items: ["APT33: wiper malware on Gulf energy targets", "APT35: phishing US defense contractors", "MuddyWater: espionage against Israeli gov"], severity: "critical" },
+  { title: "THREAT ACTOR PROFILES", items: ["APT33 (Elfin): IRGC-linked, destructive capability", "APT35 (Charming Kitten): Intel collection", "Shamoon 4.0 variant: detected but not yet deployed"], severity: "high" },
+  { title: "VULNERABILITY LANDSCAPE", items: ["ICS/SCADA systems in Gulf: 47 exposed endpoints", "Oil & gas sector: 12 critical CVEs unpatched", "DNS infrastructure: DDoS staging detected"], severity: "high" },
+  { title: "ATTRIBUTION CONFIDENCE", items: ["APT33 Gulf campaign: HIGH confidence (NSA/CYBERCOM)", "Shamoon variant: MODERATE (behavioral match)", "DDoS staging: LOW (proxy infrastructure)"], severity: "moderate" },
+]
+Card styling:
+
+Background: --deep (#080D18)
+Border: 1px solid --border (#1C2C42)
+Border-radius: 5px
+Top accent: 2px line in section domain color
+Title: Rajdhani 700 10px uppercase, --txt-2
+Items: DM Sans 11px, --txt-1
+Severity dot (6px) next to title
+Hover: border → --border-hi
+
+Part B: Search Palette (⌘K)
+Build the command palette that opens with ⌘K or clicking the search bar in TopBar.
+Container:
+
+Modal overlay (centered, ~600px wide, max-height 60vh)
+Background: --deep with backdrop blur
+Border: 1px solid --border-glo (#2E4A6A)
+Box-shadow: 0 16px 64px rgba(0,0,0,0.5)
+Entrance: fade in + slide down (translateY(-10px) → 0)
+
+Search input:
+
+Large text input (DM Sans 16px, --txt-1)
+Placeholder: "Search countries, entities, signals, or type a command..."
+Auto-focus on open
+Magnifying glass icon left side
+
+Mock results for query "iran":
+typescriptconst MOCK_RESULTS = {
+  countries: [
+    { type: "country", id: "iran", name: "Iran", subtitle: "Risk: 92 · CRITICAL", icon: "🇮🇷" },
+    { type: "country", id: "iraq", name: "Iraq", subtitle: "Risk: 45 · MODERATE", icon: "🇮🇶" },
+  ],
+  entities: [
+    { type: "entity", id: "irgc", name: "IRGC", subtitle: "Military Organization · Iran", icon: "⚔" },
+    { type: "entity", id: "hezbollah", name: "Hezbollah", subtitle: "Proxy · Lebanon", icon: "🎯" },
+  ],
+  signals: [
+    { type: "signal", id: "s1", name: "IRGC at maximum readiness", subtitle: "2h ago · CRITICAL", icon: "⚡" },
+    { type: "signal", id: "s2", name: "Oil surges past $67", subtitle: "6h ago · HIGH", icon: "📊" },
+  ],
+};
+Behavior:
+
+⌘K (Mac) / Ctrl+K (Windows) opens palette
+Click search bar in TopBar opens palette
+ESC closes
+↑/↓ arrow keys highlight results
+Enter selects highlighted result
+Click country → close palette + openCountryFocus(id)
+
+Part C: Minor Polish
+
+IntelRail.tsx — Replace placeholder sections with content:
+
+Trending Signals: 5 short signal headlines from intel feed data
+Active Alerts: 3 alert items with severity dots
+Quick Watchlist: 3 country names with risk scores
+
+
+Global keyboard shortcuts: ESC closes any open overlay, ⌘K opens search
+
+Visual quality checks
+
+Scrolling past L1 reveals L2 section divider and 4 domain sections
+Each L2 section has correct domain color accent
+16 total cards render (4 sections × 4 cards)
+⌘K opens search palette centered on screen with auto-focus
+Arrow keys navigate results, Enter selects
+Clicking a country result opens the dossier
+ESC closes search palette
+Intel rail shows real content
+
+Definition of done
+
+L2 sections render with 16 cards
+Search palette works with keyboard shortcuts
+Intel rail has content
+npm run typecheck passes with zero errors
+No console errors
+
+Do NOT proceed further. Show me summary, checks, and bundle size.

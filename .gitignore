@@ -38,4 +38,9 @@ scripts/data/osm-military-processed.json
 scripts/data/military-bases-final.json
 scripts/data/dedup-dropped-pairs.json
 scripts/data/gpsjam-latest.json
-.env.local.txt
+scripts/data/mirta-raw.geojson
+scripts/data/osm-military-raw.json
+
+# Iran events seed script + data (sensitive, not for public repo)
+scripts/seed-iran-events.mjs
+scripts/data/iran-events-latest.json

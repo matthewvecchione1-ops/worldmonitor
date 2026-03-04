@@ -13,6 +13,7 @@ import type { GeoHubActivity } from '@/services/geo-activity';
 import { getNaturalEventIcon } from '@/services/eonet';
 import type { WeatherAlert } from '@/services/weather';
 import { getSeverityColor } from '@/services/weather';
+import { startSmartPollLoop, type SmartPollLoopHandle } from '@/services/runtime';
 import {
   MAP_URLS,
   INTEL_HOTSPOTS,
@@ -54,6 +55,8 @@ import {
 } from '@/services/hotspot-escalation';
 import { getCountryScore } from '@/services/country-instability';
 import { getAlertsNearLocation } from '@/services/geo-convergence';
+import { getCountryAtCoordinates, getCountryBbox } from '@/services/country-geometry';
+import type { CountryClickPayload } from './DeckGLMap';
 import { t } from '@/services/i18n';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
@@ -94,12 +97,12 @@ export class MapComponent {
   private static readonly LAYER_ZOOM_THRESHOLDS: Partial<
     Record<keyof MapLayers, { minZoom: number; showLabels?: number }>
   > = {
-    bases: { minZoom: 3, showLabels: 5 },
-    nuclear: { minZoom: 2 },
-    conflicts: { minZoom: 1, showLabels: 3 },
-    economic: { minZoom: 2 },
-    natural: { minZoom: 1, showLabels: 2 },
-  };
+      bases: { minZoom: 3, showLabels: 5 },
+      nuclear: { minZoom: 2 },
+      conflicts: { minZoom: 1, showLabels: 3 },
+      economic: { minZoom: 2 },
+      natural: { minZoom: 1, showLabels: 2 },
+    };
 
   private container: HTMLElement;
   private svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
@@ -110,6 +113,7 @@ export class MapComponent {
   private state: MapState;
   private worldData: WorldTopology | null = null;
   private countryFeatures: Feature<Geometry>[] | null = null;
+  private isResizing = false;
   private baseLayerGroup: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
   private dynamicLayerGroup: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
   private baseRendered = false;
@@ -145,6 +149,7 @@ export class MapComponent {
   private onLayerChange?: (layer: keyof MapLayers, enabled: boolean, source: 'user' | 'programmatic') => void;
   private layerZoomOverrides: Partial<Record<keyof MapLayers, boolean>> = {};
   private onStateChange?: (state: MapState) => void;
+  private onCountryClick?: (country: CountryClickPayload) => void;
   private highlightedAssets: Record<AssetType, Set<string>> = {
     pipeline: new Set(),
     cable: new Set(),
@@ -156,7 +161,7 @@ export class MapComponent {
   private renderScheduled = false;
   private lastRenderTime = 0;
   private readonly MIN_RENDER_INTERVAL_MS = 100;
-  private healthCheckIntervalId: ReturnType<typeof setInterval> | null = null;
+  private healthCheckLoop: SmartPollLoopHandle | null = null;
 
   constructor(container: HTMLElement, initialState: MapState) {
     this.container = container;
@@ -187,7 +192,13 @@ export class MapComponent {
     container.appendChild(this.createTimeSlider());
     container.appendChild(this.createLayerToggles());
     container.appendChild(this.createLegend());
-    this.healthCheckIntervalId = setInterval(() => this.runHealthCheck(), 30000);
+    this.healthCheckLoop = startSmartPollLoop(() => { this.runHealthCheck(); }, {
+      intervalMs: 30_000,
+      pauseWhenHidden: true,
+      refreshOnVisible: false,
+      runImmediately: false,
+      jitterFraction: 0,
+    });
 
     this.svg = d3.select(svgElement);
     this.baseLayerGroup = this.svg.append('g').attr('class', 'map-base');
@@ -209,6 +220,7 @@ export class MapComponent {
     let lastWidth = 0;
     let lastHeight = 0;
     const resizeObserver = new ResizeObserver((entries) => {
+      if (this.isResizing) return;
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         if (width > 0 && height > 0 && (width !== lastWidth || height !== lastHeight)) {
@@ -229,11 +241,23 @@ export class MapComponent {
     document.addEventListener('visibilitychange', this.boundVisibilityHandler);
   }
 
+  public setIsResizing(value: boolean): void {
+    const wasResizing = this.isResizing;
+    this.isResizing = value;
+    if (wasResizing && !value) {
+      requestAnimationFrame(() => this.render());
+    }
+  }
+
+  public resize(): void {
+    requestAnimationFrame(() => this.render());
+  }
+
   public destroy(): void {
     document.removeEventListener('visibilitychange', this.boundVisibilityHandler);
-    if (this.healthCheckIntervalId) {
-      clearInterval(this.healthCheckIntervalId);
-      this.healthCheckIntervalId = null;
+    if (this.healthCheckLoop) {
+      this.healthCheckLoop.stop();
+      this.healthCheckLoop = null;
     }
   }
 
@@ -241,9 +265,9 @@ export class MapComponent {
     const controls = document.createElement('div');
     controls.className = 'map-controls';
     controls.innerHTML = `
-      <button class="map-control-btn" data-action="zoom-in">+</button>
-      <button class="map-control-btn" data-action="zoom-out">−</button>
-      <button class="map-control-btn" data-action="reset">⟲</button>
+      <button class="map-control-btn" data-action="zoom-in" aria-label="Zoom in">+</button>
+      <button class="map-control-btn" data-action="zoom-out" aria-label="Zoom out">−</button>
+      <button class="map-control-btn" data-action="reset" aria-label="Reset rotation">⟲</button>
     `;
 
     controls.addEventListener('click', (e) => {
@@ -275,11 +299,11 @@ export class MapComponent {
       <span class="time-slider-label">TIME RANGE</span>
       <div class="time-slider-buttons">
         ${ranges
-          .map(
-            (r) =>
-              `<button class="time-btn ${this.state.timeRange === r.value ? 'active' : ''}" data-range="${r.value}">${r.label}</button>`
-          )
-          .join('')}
+        .map(
+          (r) =>
+            `<button class="time-btn ${this.state.timeRange === r.value ? 'active' : ''}" data-range="${r.value}">${r.label}</button>`
+        )
+        .join('')}
       </div>
     `;
 
@@ -410,6 +434,7 @@ export class MapComponent {
     helpBtn.className = 'layer-help-btn';
     helpBtn.textContent = '?';
     helpBtn.title = t('components.deckgl.layerGuide');
+    helpBtn.setAttribute('aria-label', t('components.deckgl.layerGuide'));
     helpBtn.addEventListener('click', () => this.showLayerHelp());
     toggles.appendChild(helpBtn);
 
@@ -440,7 +465,7 @@ export class MapComponent {
     const helpHeader = `
       <div class="layer-help-header">
         <span>${t('components.deckgl.layerHelp.title')}</span>
-        <button class="layer-help-close">×</button>
+        <button class="layer-help-close" aria-label="Close">×</button>
       </div>
     `;
 
@@ -448,23 +473,23 @@ export class MapComponent {
       ${helpHeader}
       <div class="layer-help-content">
         ${helpSection('techEcosystem', [
-          helpItem(label('startupHubs'), 'techStartupHubs'),
-          helpItem(label('cloudRegions'), 'techCloudRegions'),
-          helpItem(label('techHQs'), 'techHQs'),
-          helpItem(label('accelerators'), 'techAccelerators'),
-          helpItem(label('techEvents'), 'techEvents'),
-        ])}
+      helpItem(label('startupHubs'), 'techStartupHubs'),
+      helpItem(label('cloudRegions'), 'techCloudRegions'),
+      helpItem(label('techHQs'), 'techHQs'),
+      helpItem(label('accelerators'), 'techAccelerators'),
+      helpItem(label('techEvents'), 'techEvents'),
+    ])}
         ${helpSection('infrastructure', [
-          helpItem(label('underseaCables'), 'infraCables'),
-          helpItem(label('aiDataCenters'), 'infraDatacenters'),
-          helpItem(label('internetOutages'), 'infraOutages'),
-          helpItem(label('cyberThreats'), 'techCyberThreats'),
-        ])}
+      helpItem(label('underseaCables'), 'infraCables'),
+      helpItem(label('aiDataCenters'), 'infraDatacenters'),
+      helpItem(label('internetOutages'), 'infraOutages'),
+      helpItem(label('cyberThreats'), 'techCyberThreats'),
+    ])}
         ${helpSection('naturalEconomic', [
-          helpItem(label('naturalEvents'), 'naturalEventsTech'),
-          helpItem(label('fires'), 'techFires'),
-          helpItem(staticLabel('countries'), 'countriesOverlay'),
-        ])}
+      helpItem(label('naturalEvents'), 'naturalEventsTech'),
+      helpItem(label('fires'), 'techFires'),
+      helpItem(staticLabel('countries'), 'countriesOverlay'),
+    ])}
       </div>
     `;
 
@@ -472,24 +497,24 @@ export class MapComponent {
       ${helpHeader}
       <div class="layer-help-content">
         ${helpSection('financeCore', [
-          helpItem(label('stockExchanges'), 'financeExchanges'),
-          helpItem(label('financialCenters'), 'financeCenters'),
-          helpItem(label('centralBanks'), 'financeCentralBanks'),
-          helpItem(label('commodityHubs'), 'financeCommodityHubs'),
-          helpItem(label('gulfInvestments'), 'financeGulfInvestments'),
-        ])}
+      helpItem(label('stockExchanges'), 'financeExchanges'),
+      helpItem(label('financialCenters'), 'financeCenters'),
+      helpItem(label('centralBanks'), 'financeCentralBanks'),
+      helpItem(label('commodityHubs'), 'financeCommodityHubs'),
+      helpItem(label('gulfInvestments'), 'financeGulfInvestments'),
+    ])}
         ${helpSection('infrastructureRisk', [
-          helpItem(label('underseaCables'), 'financeCables'),
-          helpItem(label('pipelines'), 'financePipelines'),
-          helpItem(label('internetOutages'), 'financeOutages'),
-          helpItem(label('cyberThreats'), 'financeCyberThreats'),
-        ])}
+      helpItem(label('underseaCables'), 'financeCables'),
+      helpItem(label('pipelines'), 'financePipelines'),
+      helpItem(label('internetOutages'), 'financeOutages'),
+      helpItem(label('cyberThreats'), 'financeCyberThreats'),
+    ])}
         ${helpSection('macroContext', [
-          helpItem(label('economicCenters'), 'economicCenters'),
-          helpItem(label('strategicWaterways'), 'macroWaterways'),
-          helpItem(label('weatherAlerts'), 'weatherAlertsMarket'),
-          helpItem(label('naturalEvents'), 'naturalEventsMacro'),
-        ])}
+      helpItem(label('economicCenters'), 'economicCenters'),
+      helpItem(label('strategicWaterways'), 'macroWaterways'),
+      helpItem(label('weatherAlerts'), 'weatherAlertsMarket'),
+      helpItem(label('naturalEvents'), 'naturalEventsMacro'),
+    ])}
       </div>
     `;
 
@@ -497,55 +522,55 @@ export class MapComponent {
       ${helpHeader}
       <div class="layer-help-content">
         ${helpSection('timeFilter', [
-          helpItem(staticLabel('timeRecent'), 'timeRecent'),
-          helpItem(staticLabel('timeExtended'), 'timeExtended'),
-        ], 'timeAffects')}
+      helpItem(staticLabel('timeRecent'), 'timeRecent'),
+      helpItem(staticLabel('timeExtended'), 'timeExtended'),
+    ], 'timeAffects')}
         ${helpSection('geopolitical', [
-          helpItem(label('conflictZones'), 'geoConflicts'),
-          helpItem(label('intelHotspots'), 'geoHotspots'),
-          helpItem(staticLabel('sanctions'), 'geoSanctions'),
-          helpItem(label('protests'), 'geoProtests'),
-          helpItem(label('ucdpEvents'), 'geoUcdpEvents'),
-          helpItem(label('displacementFlows'), 'geoDisplacement'),
-        ])}
+      helpItem(label('conflictZones'), 'geoConflicts'),
+      helpItem(label('intelHotspots'), 'geoHotspots'),
+      helpItem(staticLabel('sanctions'), 'geoSanctions'),
+      helpItem(label('protests'), 'geoProtests'),
+      helpItem(label('ucdpEvents'), 'geoUcdpEvents'),
+      helpItem(label('displacementFlows'), 'geoDisplacement'),
+    ])}
         ${helpSection('militaryStrategic', [
-          helpItem(label('militaryBases'), 'militaryBases'),
-          helpItem(label('nuclearSites'), 'militaryNuclear'),
-          helpItem(label('gammaIrradiators'), 'militaryIrradiators'),
-          helpItem(label('militaryActivity'), 'militaryActivity'),
-          helpItem(label('spaceports'), 'militarySpaceports'),
-        ])}
+      helpItem(label('militaryBases'), 'militaryBases'),
+      helpItem(label('nuclearSites'), 'militaryNuclear'),
+      helpItem(label('gammaIrradiators'), 'militaryIrradiators'),
+      helpItem(label('militaryActivity'), 'militaryActivity'),
+      helpItem(label('spaceports'), 'militarySpaceports'),
+    ])}
         ${helpSection('infrastructure', [
-          helpItem(label('underseaCables'), 'infraCablesFull'),
-          helpItem(label('pipelines'), 'infraPipelinesFull'),
-          helpItem(label('internetOutages'), 'infraOutages'),
-          helpItem(label('aiDataCenters'), 'infraDatacentersFull'),
-          helpItem(label('cyberThreats'), 'infraCyberThreats'),
-        ])}
+      helpItem(label('underseaCables'), 'infraCablesFull'),
+      helpItem(label('pipelines'), 'infraPipelinesFull'),
+      helpItem(label('internetOutages'), 'infraOutages'),
+      helpItem(label('aiDataCenters'), 'infraDatacentersFull'),
+      helpItem(label('cyberThreats'), 'infraCyberThreats'),
+    ])}
         ${helpSection('transport', [
-          helpItem(label('shipTraffic'), 'transportShipping'),
-          helpItem(label('flightDelays'), 'transportDelays'),
-        ])}
+      helpItem(label('shipTraffic'), 'transportShipping'),
+      helpItem(label('flightDelays'), 'transportDelays'),
+    ])}
         ${helpSection('naturalEconomic', [
-          helpItem(label('naturalEvents'), 'naturalEventsFull'),
-          helpItem(label('fires'), 'firesFull'),
-          helpItem(label('weatherAlerts'), 'weatherAlerts'),
-          helpItem(label('climateAnomalies'), 'climateAnomalies'),
-          helpItem(label('economicCenters'), 'economicCenters'),
-          helpItem(label('criticalMinerals'), 'mineralsFull'),
-        ])}
+      helpItem(label('naturalEvents'), 'naturalEventsFull'),
+      helpItem(label('fires'), 'firesFull'),
+      helpItem(label('weatherAlerts'), 'weatherAlerts'),
+      helpItem(label('climateAnomalies'), 'climateAnomalies'),
+      helpItem(label('economicCenters'), 'economicCenters'),
+      helpItem(label('criticalMinerals'), 'mineralsFull'),
+    ])}
         ${helpSection('labels', [
-          helpItem(staticLabel('countries'), 'countriesOverlay'),
-          helpItem(label('strategicWaterways'), 'waterwaysLabels'),
-        ])}
+      helpItem(staticLabel('countries'), 'countriesOverlay'),
+      helpItem(label('strategicWaterways'), 'waterwaysLabels'),
+    ])}
       </div>
     `;
 
     popup.innerHTML = SITE_VARIANT === 'tech'
       ? techHelpContent
       : SITE_VARIANT === 'finance'
-      ? financeHelpContent
-      : fullHelpContent;
+        ? financeHelpContent
+        : fullHelpContent;
 
     popup.querySelector('.layer-help-close')?.addEventListener('click', () => popup.remove());
 
@@ -611,9 +636,6 @@ export class MapComponent {
   }
 
   private runHealthCheck(): void {
-    // Skip if page is hidden (no need to check while user isn't looking)
-    if (document.hidden) return;
-
     const svgNode = this.svg.node();
     if (!svgNode) return;
 
@@ -707,14 +729,22 @@ export class MapComponent {
       }
     });
 
-    // Touch events for mobile and trackpad
+    let touchStartPos = { x: 0, y: 0 };
+    let touchDragActive = false;
+    let lastDragEndTime = 0;
+    const TOUCH_DRAG_THRESHOLD = 8;
+    const touchHistory: Array<{ x: number; y: number; t: number }> = [];
+    let inertiaRaf = 0;
+
     this.container.addEventListener('touchstart', (e) => {
       if (shouldIgnoreInteractionStart(e.target)) return;
+      cancelAnimationFrame(inertiaRaf);
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
 
       if (e.touches.length === 2 && touch1 && touch2) {
         e.preventDefault();
+        touchDragActive = false;
         lastTouchDist = Math.hypot(
           touch2.clientX - touch1.clientX,
           touch2.clientY - touch1.clientY
@@ -725,7 +755,11 @@ export class MapComponent {
         };
       } else if (e.touches.length === 1 && touch1) {
         isDragging = true;
+        touchDragActive = false;
+        touchStartPos = { x: touch1.clientX, y: touch1.clientY };
         lastPos = { x: touch1.clientX, y: touch1.clientY };
+        touchHistory.length = 0;
+        touchHistory.push({ x: touch1.clientX, y: touch1.clientY, t: performance.now() });
       }
     }, { passive: false });
 
@@ -736,7 +770,6 @@ export class MapComponent {
       if (e.touches.length === 2 && touch1 && touch2) {
         e.preventDefault();
 
-        // Pinch zoom
         const dist = Math.hypot(
           touch2.clientX - touch1.clientX,
           touch2.clientY - touch1.clientY
@@ -745,7 +778,6 @@ export class MapComponent {
         this.state.zoom = Math.max(1, Math.min(10, this.state.zoom * scale));
         lastTouchDist = dist;
 
-        // Two-finger pan
         const center = {
           x: (touch1.clientX + touch2.clientX) / 2,
           y: (touch1.clientY + touch2.clientY) / 2,
@@ -757,6 +789,15 @@ export class MapComponent {
 
         this.applyTransform();
       } else if (e.touches.length === 1 && isDragging && touch1) {
+        if (!touchDragActive) {
+          const dx0 = touch1.clientX - touchStartPos.x;
+          const dy0 = touch1.clientY - touchStartPos.y;
+          if (Math.hypot(dx0, dy0) < TOUCH_DRAG_THRESHOLD) return;
+          touchDragActive = true;
+        }
+
+        e.preventDefault();
+
         const dx = touch1.clientX - lastPos.x;
         const dy = touch1.clientY - lastPos.y;
 
@@ -765,16 +806,67 @@ export class MapComponent {
         this.state.pan.y += dy * panSpeed;
 
         lastPos = { x: touch1.clientX, y: touch1.clientY };
+        const now = performance.now();
+        touchHistory.push({ x: touch1.clientX, y: touch1.clientY, t: now });
+        if (touchHistory.length > 4) touchHistory.shift();
+
         this.applyTransform();
       }
     }, { passive: false });
 
     this.container.addEventListener('touchend', () => {
+      if (touchDragActive && touchHistory.length >= 2) {
+        const last = touchHistory[touchHistory.length - 1]!;
+        const first = touchHistory[0]!;
+        const dt = (last.t - first.t) / 1000;
+        if (dt > 0 && dt < 0.3) {
+          let vx = (last.x - first.x) / dt;
+          let vy = (last.y - first.y) / dt;
+          const panSpeed = 1 / this.state.zoom;
+          const decay = 0.92;
+          const animate = () => {
+            vx *= decay;
+            vy *= decay;
+            if (Math.abs(vx) < 10 && Math.abs(vy) < 10) return;
+            this.state.pan.x += (vx / 60) * panSpeed;
+            this.state.pan.y += (vy / 60) * panSpeed;
+            this.applyTransform();
+            inertiaRaf = requestAnimationFrame(animate);
+          };
+          inertiaRaf = requestAnimationFrame(animate);
+        }
+      }
       isDragging = false;
+      if (touchDragActive) lastDragEndTime = performance.now();
+      touchDragActive = false;
       lastTouchDist = 0;
+      touchHistory.length = 0;
     });
 
-    // Set initial cursor
+    this.container.addEventListener('click', (e) => {
+      if (!this.onCountryClick) return;
+      if (performance.now() - lastDragEndTime < 300) return;
+      const containerRect = this.container.getBoundingClientRect();
+      const zoom = this.state.zoom;
+      const width = this.container.clientWidth;
+      const height = this.container.clientHeight;
+      const centerOffsetX = (width / 2) * (1 - zoom);
+      const centerOffsetY = (height / 2) * (1 - zoom);
+      const tx = centerOffsetX + this.state.pan.x * zoom;
+      const ty = centerOffsetY + this.state.pan.y * zoom;
+      const rawX = (e.clientX - containerRect.left - tx) / zoom;
+      const rawY = (e.clientY - containerRect.top - ty) / zoom;
+      const projection = this.getProjection(width, height);
+      if (!projection.invert) return;
+      const coords = projection.invert([rawX, rawY]);
+      if (!coords) return;
+      const [lon, lat] = coords;
+      const hit = getCountryAtCoordinates(lat, lon);
+      if (hit) {
+        this.onCountryClick({ lat, lon, code: hit.code, name: hit.name });
+      }
+    });
+
     this.container.style.cursor = 'grab';
   }
 
@@ -1362,7 +1454,7 @@ export class MapComponent {
         const size = ev.severity === 'high' ? 14 : ev.severity === 'medium' ? 11 : 8;
         const color = ev.category === 'military' ? 'rgba(255,50,50,0.85)'
           : (ev.category === 'politics' || ev.category === 'diplomacy') ? 'rgba(255,165,0,0.8)'
-          : 'rgba(255,255,0,0.7)';
+            : 'rgba(255,255,0,0.7)';
 
         const div = document.createElement('div');
         div.className = 'iran-event-marker';
@@ -3194,7 +3286,9 @@ export class MapComponent {
 
     if (assets) {
       assets.forEach((asset) => {
-        this.highlightedAssets[asset.type].add(asset.id);
+        if (asset?.type && this.highlightedAssets[asset.type]) {
+          this.highlightedAssets[asset.type].add(asset.id);
+        }
       });
     }
 
@@ -3325,7 +3419,7 @@ export class MapComponent {
         const dx = Math.abs((rect.left + rect.width / 2) - (vr.left + vr.width / 2));
         const dy = Math.abs((rect.top + rect.height / 2) - (vr.top + vr.height / 2));
         return dx < (rect.width + vr.width) / 2 + minDistance &&
-               dy < (rect.height + vr.height) / 2 + minDistance;
+          dy < (rect.height + vr.height) / 2 + minDistance;
       });
 
       if (overlaps && zoom < 2) {
@@ -3343,6 +3437,35 @@ export class MapComponent {
 
   public onTimeRangeChanged(callback: (range: TimeRange) => void): void {
     this.onTimeRangeChange = callback;
+  }
+
+  public setOnCountryClick(cb: (country: CountryClickPayload) => void): void {
+    this.onCountryClick = cb;
+  }
+
+  public fitCountry(code: string): void {
+    const bbox = getCountryBbox(code);
+    if (!bbox) return;
+    const [minLon, minLat, maxLon, maxLat] = bbox;
+    const midLon = (minLon + maxLon) / 2;
+    const midLat = (minLat + maxLat) / 2;
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    const projection = this.getProjection(width, height);
+    const topLeft = projection([minLon, maxLat]);
+    const bottomRight = projection([maxLon, minLat]);
+    if (!topLeft || !bottomRight) {
+      this.state.zoom = 4;
+      this.setCenter(midLat, midLon);
+      return;
+    }
+    const pxWidth = Math.abs(bottomRight[0] - topLeft[0]);
+    const pxHeight = Math.abs(bottomRight[1] - topLeft[1]);
+    const padFactor = 0.8;
+    const zoomX = pxWidth > 0 ? (width * padFactor) / pxWidth : 4;
+    const zoomY = pxHeight > 0 ? (height * padFactor) / pxHeight : 4;
+    this.state.zoom = Math.max(1, Math.min(8, Math.min(zoomX, zoomY)));
+    this.setCenter(midLat, midLon);
   }
 
   public getState(): MapState {

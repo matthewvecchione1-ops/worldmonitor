@@ -32,13 +32,14 @@ let flightCache: { data: MilitaryFlight[]; timestamp: number } | null = null;
 const flightHistory = new Map<string, { positions: [number, number][]; lastUpdate: number }>();
 const HISTORY_MAX_POINTS = 20;
 const HISTORY_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+let historyCleanupIntervalId: ReturnType<typeof setInterval> | null = null;
 
 // Circuit breaker for API calls
 const breaker = createCircuitBreaker<{ flights: MilitaryFlight[]; clusters: MilitaryFlightCluster[] }>({
   name: 'Military Flight Tracking',
   maxFailures: 3,
   cooldownMs: 5 * 60 * 1000, // 5 minute cooldown
-  cacheTtlMs: 5 * 60 * 1000, // 5 minute cache
+  cacheTtlMs: 10 * 60 * 1000,
 });
 
 // OpenSky API returns arrays in this order:
@@ -497,7 +498,15 @@ function cleanupFlightHistory(): void {
 
 // Set up periodic cleanup
 if (typeof window !== 'undefined') {
-  setInterval(cleanupFlightHistory, HISTORY_CLEANUP_INTERVAL);
+  historyCleanupIntervalId = setInterval(cleanupFlightHistory, HISTORY_CLEANUP_INTERVAL);
+}
+
+/** Stop the periodic flight-history cleanup (for teardown / testing). */
+export function stopFlightHistoryCleanup(): void {
+  if (historyCleanupIntervalId) {
+    clearInterval(historyCleanupIntervalId);
+    historyCleanupIntervalId = null;
+  }
 }
 
 /**

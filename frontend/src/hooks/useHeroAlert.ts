@@ -38,7 +38,7 @@ export function useHeroAlert() {
       if (globalScore < 30 && !topTension) return null;
 
       const severity: HeroAlert['severity'] =
-        globalScore >= 70 ? 'critical' : globalScore >= 50 ? 'high' : 'medium';
+        globalScore >= 70 ? 'critical' : 'high';
 
       const topFactors = risk?.strategicRisks?.[0]?.factors?.slice(0, 3).join(', ') ?? '';
       const tensionText = topTension
@@ -54,7 +54,7 @@ export function useHeroAlert() {
         headline: `Global Risk Score ${globalScore}/100. ${countryText}${tensionText}Key drivers: ${topFactors}.`,
         probability: globalScore / 100,
         probabilityLabel: 'global instability',
-        countryId: topCountry?.region?.toLowerCase() ?? null,
+        countryId: topCountry?.region?.toLowerCase() ?? '',
         timestamp: new Date().toISOString(),
         dismissed: false,
       };

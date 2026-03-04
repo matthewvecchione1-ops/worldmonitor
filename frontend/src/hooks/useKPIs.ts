@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../lib/constants';
 
 interface RiskScoresResponse {
   ciiScores: { region: string; combinedScore: number; trend: string }[];
-  strategicRisks: { region: string; score: number; level: string }[];
+  strategicRisks: { region: string; score: number; level: string; factors?: string[] }[];
 }
 
 interface PizzintResponse {
